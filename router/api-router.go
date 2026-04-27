@@ -7,6 +7,9 @@ import (
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
 
+	// Import phone auth provider package to register providers via init()
+	_ "github.com/QuantumNous/new-api/provider"
+
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 )
@@ -45,6 +48,32 @@ func SetApiRouter(router *gin.Engine) {
 		// Standard OAuth providers (GitHub, Discord, OIDC, LinuxDO) - unified route
 		apiRouter.GET("/oauth/:provider", middleware.CriticalRateLimit(), controller.HandleOAuth)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
+
+		phoneAuthRoute := apiRouter.Group("/phone-auth")
+		{
+			phoneAuthRoute.GET("/enabled", controller.GetPhoneAuthEnabled)
+			phoneAuthRoute.POST("/sms/send", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPhoneVerifyCode)
+			phoneAuthRoute.POST("/sms/login", middleware.CriticalRateLimit(), controller.PhoneSmsLogin)
+			phoneAuthRoute.POST("/register", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.PhoneRegister)
+			phoneAuthRoute.POST("/one-click/login", middleware.CriticalRateLimit(), controller.PhoneOneClickLogin)
+		}
+		phoneAuthUserRoute := apiRouter.Group("/phone-auth")
+		phoneAuthUserRoute.Use(middleware.UserAuth())
+		{
+			phoneAuthUserRoute.GET("/status", controller.GetPhoneAuthStatus)
+			phoneAuthUserRoute.POST("/bind", middleware.CriticalRateLimit(), controller.BindPhone)
+			phoneAuthUserRoute.POST("/rebind", middleware.CriticalRateLimit(), controller.RebindPhone)
+			phoneAuthUserRoute.POST("/unbind", middleware.CriticalRateLimit(), controller.UnbindPhone)
+		}
+		phoneAuthAdminRoute := apiRouter.Group("/phone-auth/admin")
+		phoneAuthAdminRoute.Use(middleware.RootAuth())
+		{
+			phoneAuthAdminRoute.GET("/providers", controller.GetPhoneAuthProviders)
+			phoneAuthAdminRoute.PUT("/providers", controller.UpdatePhoneAuthProviders)
+			phoneAuthAdminRoute.GET("/user/:id/phone", controller.AdminGetUserPhone)
+			phoneAuthAdminRoute.PUT("/user/:id/verified", controller.AdminSetUserPhoneVerified)
+			phoneAuthAdminRoute.POST("/user/:id/unbind", controller.AdminUnbindUserPhone)
+		}
 
 		apiRouter.POST("/stripe/webhook", controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", controller.CreemWebhook)

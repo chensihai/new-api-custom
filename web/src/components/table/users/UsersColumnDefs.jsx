@@ -339,6 +339,38 @@ export const getUsersColumns = ({
       },
     },
     {
+      title: t('手机号'),
+      dataIndex: 'phone_number',
+      render: (text, record) => {
+        if (!record.phone_number) {
+          return <span className='text-gray-400'>-</span>;
+        }
+        const phone = String(record.phone_number);
+        if (phone.length >= 7) {
+          return <span>{phone.slice(0, 3)}****{phone.slice(7)}</span>;
+        }
+        return <span>{phone}</span>;
+      },
+    },
+    {
+      title: t('实名状态'),
+      dataIndex: 'phone_auth_verified',
+      render: (text, record) => {
+        if (record.phone_auth_verified) {
+          return (
+            <Tag color='green' shape='circle' size='small'>
+              {t('已认证')}
+            </Tag>
+          );
+        }
+        return (
+          <Tag color='grey' shape='circle' size='small'>
+            {t('未认证')}
+          </Tag>
+        );
+      },
+    },
+    {
       title: t('角色'),
       dataIndex: 'role',
       render: (text, record, index) => {

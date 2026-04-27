@@ -43,6 +43,7 @@ import {
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import CustomOAuthSetting from './CustomOAuthSetting';
+import PhoneAuthProviderSettings from '../PhoneAuthProviderSettings';
 
 const SystemSetting = () => {
   const { t } = useTranslation();
@@ -53,6 +54,8 @@ const SystemSetting = () => {
     GitHubOAuthEnabled: '',
     GitHubClientId: '',
     GitHubClientSecret: '',
+    PhoneLoginEnabled: '',
+    PhoneAuthForceRealNameAuth: '',
     'discord.enabled': '',
     'discord.client_id': '',
     'discord.client_secret': '',
@@ -176,6 +179,8 @@ const SystemSetting = () => {
           case 'PasswordRegisterEnabled':
           case 'EmailVerificationEnabled':
           case 'GitHubOAuthEnabled':
+          case 'PhoneLoginEnabled':
+          case 'PhoneAuthForceRealNameAuth':
           case 'WeChatAuthEnabled':
           case 'TelegramOAuthEnabled':
           case 'RegisterEnabled':
@@ -1091,10 +1096,32 @@ const SystemSetting = () => {
                       >
                         {t('允许通过 OIDC 进行登录')}
                       </Form.Checkbox>
+                      <Form.Checkbox
+                        field='PhoneLoginEnabled'
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange('PhoneLoginEnabled', e)
+                        }
+                      >
+                        {t('允许通过手机号注册登录')}
+                      </Form.Checkbox>
+                      <Form.Checkbox
+                        field='PhoneAuthForceRealNameAuth'
+                        noLabel
+                        onChange={(e) =>
+                          handleCheckboxChange('PhoneAuthForceRealNameAuth', e)
+                        }
+                      >
+                        {t('强制实名认证')}
+                      </Form.Checkbox>
                     </Col>
                   </Row>
                 </Form.Section>
               </Card>
+
+              {inputs.PhoneLoginEnabled && (
+                <PhoneAuthProviderSettings t={t} />
+              )}
 
               <Card>
                 <Form.Section text={t('配置 Passkey')}>

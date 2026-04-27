@@ -41,6 +41,8 @@ import {
   Form,
   Icon,
   Modal,
+  TabPane,
+  Tabs,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -60,6 +62,7 @@ import OIDCIcon from '../common/logo/OIDCIcon';
 import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import TelegramLoginButton from 'react-telegram-login/src';
+import PhoneRegisterForm from './PhoneRegisterForm';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
@@ -99,6 +102,8 @@ const RegisterForm = () => {
   const [verificationCodeLoading, setVerificationCodeLoading] = useState(false);
   const [otherRegisterOptionsLoading, setOtherRegisterOptionsLoading] =
     useState(false);
+  const [phoneAuthEnabled, setPhoneAuthEnabled] = useState(false);
+  const [registerTab, setRegisterTab] = useState('username');
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
   const [customOAuthLoading, setCustomOAuthLoading] = useState({});
   const [disableButton, setDisableButton] = useState(false);
@@ -150,9 +155,17 @@ const RegisterForm = () => {
       setTurnstileSiteKey(status.turnstile_site_key);
     }
 
-    // 从 status 获取用户协议和隐私政策的启用状态
     setHasUserAgreement(status?.user_agreement_enabled || false);
     setHasPrivacyPolicy(status?.privacy_policy_enabled || false);
+
+    API.get('/api/phone-auth/enabled')
+      .then((res) => {
+        const { success, data } = res.data;
+        if (success && data && data.allow_phone_register) {
+          setPhoneAuthEnabled(true);
+        }
+      })
+      .catch(() => {});
   }, [status]);
 
   useEffect(() => {
@@ -572,6 +585,17 @@ const RegisterForm = () => {
               </Title>
             </div>
             <div className='px-2 py-8'>
+              {phoneAuthEnabled && (
+                <Tabs
+                  activeKey={registerTab}
+                  onChange={setRegisterTab}
+                  style={{ marginBottom: 12 }}
+                >
+                  <TabPane itemKey='username' tab={t('用户名注册')} />
+                  <TabPane itemKey='phone' tab={t('手机号注册')} />
+                </Tabs>
+              )}
+              {(registerTab === 'username' || !phoneAuthEnabled) ? (
               <Form className='space-y-3'>
                 <Form.Input
                   field='username'
@@ -691,6 +715,13 @@ const RegisterForm = () => {
                   </Button>
                 </div>
               </Form>
+              ) : (
+              <PhoneRegisterForm
+                agreedToTerms={agreedToTerms}
+                hasUserAgreement={hasUserAgreement}
+                hasPrivacyPolicy={hasPrivacyPolicy}
+              />
+              )}
 
               {hasOAuthRegisterOptions && (
                 <>

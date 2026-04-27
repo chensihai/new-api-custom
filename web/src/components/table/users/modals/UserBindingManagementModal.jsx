@@ -41,6 +41,7 @@ import {
   IconGithubLogo,
 } from '@douyinfe/semi-icons';
 import { SiDiscord, SiTelegram, SiWechat, SiLinux } from 'react-icons/si';
+import { Phone as IconPhone } from 'lucide-react';
 
 const { Text } = Typography;
 
@@ -58,16 +59,18 @@ const UserBindingManagementModal = ({
   const [customOAuthBindings, setCustomOAuthBindings] = React.useState([]);
   const [builtInBindings, setBuiltInBindings] = React.useState({});
   const [bindingActionLoading, setBindingActionLoading] = React.useState({});
+  const [phoneAuthEnabled, setPhoneAuthEnabled] = React.useState(false);
 
   const loadBindingData = React.useCallback(async () => {
     if (!userId) return;
 
     setBindingLoading(true);
     try {
-      const [statusRes, customBindingRes, userRes] = await Promise.all([
+      const [statusRes, customBindingRes, userRes, phoneEnabledRes] = await Promise.all([
         API.get('/api/status'),
         API.get(`/api/user/${userId}/oauth/bindings`),
         API.get(`/api/user/${userId}`),
+        API.get('/api/phone-auth/enabled'),
       ]);
 
       if (statusRes.data?.success) {
@@ -82,6 +85,10 @@ const UserBindingManagementModal = ({
         showError(customBindingRes.data?.message || t('操作失败'));
       }
 
+      if (phoneEnabledRes.data?.success && phoneEnabledRes.data.data) {
+        setPhoneAuthEnabled(true);
+      }
+
       if (userRes.data?.success) {
         const userData = userRes.data.data || {};
         setBuiltInBindings({
@@ -92,6 +99,7 @@ const UserBindingManagementModal = ({
           wechat_id: userData.wechat_id || '',
           telegram_id: userData.telegram_id || '',
           linux_do_id: userData.linux_do_id || '',
+          phone_number: userData.phone_number || '',
         });
       } else {
         showError(userRes.data?.message || t('操作失败'));
@@ -118,6 +126,40 @@ const UserBindingManagementModal = ({
 
   const handleUnbindBuiltInAccount = (bindingItem) => {
     if (!userId) return;
+
+    if (bindingItem.key === 'phone') {
+      Modal.confirm({
+        title: t('确认解绑'),
+        content: t('确定要解绑 {{name}} 吗？', { name: bindingItem.name }),
+        okText: t('确认'),
+        cancelText: t('取消'),
+        onOk: async () => {
+          const loadingKey = 'builtin-phone';
+          setBindingLoadingState(loadingKey, true);
+          try {
+            const res = await API.post(
+              `/api/phone-auth/admin/user/${userId}/unbind`,
+            );
+            if (!res.data?.success) {
+              showError(res.data?.message || t('操作失败'));
+              return;
+            }
+            setBuiltInBindings((prev) => ({
+              ...prev,
+              phone_number: '',
+            }));
+            showSuccess(t('解绑成功'));
+          } catch (error) {
+            showError(
+              error.response?.data?.message || error.message || t('操作失败'),
+            );
+          } finally {
+            setBindingLoadingState(loadingKey, false);
+          }
+        },
+      });
+      return;
+    }
 
     Modal.confirm({
       title: t('确认解绑'),
@@ -270,6 +312,16 @@ const UserBindingManagementModal = ({
       value: getBuiltInBindingValue('linux_do_id'),
       icon: (
         <SiLinux size={20} className='text-slate-600 dark:text-slate-300' />
+      ),
+    },
+    {
+      key: 'phone',
+      field: 'phone_number',
+      name: t('手机号'),
+      enabled: phoneAuthEnabled,
+      value: getBuiltInBindingValue('phone_number'),
+      icon: (
+        <IconPhone size={20} className='text-slate-600 dark:text-slate-300' />
       ),
     },
   ];

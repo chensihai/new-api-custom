@@ -30,12 +30,12 @@ type LoginRequest struct {
 }
 
 func Login(c *gin.Context) {
-	if !common.PasswordLoginEnabled {
+	if !common.PasswordLoginEnabled && !common.PhoneLoginEnabled {
 		common.ApiErrorI18n(c, i18n.MsgUserPasswordLoginDisabled)
 		return
 	}
 	var loginRequest LoginRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&loginRequest)
+	err := common.DecodeJson(c.Request.Body, &loginRequest)
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -46,47 +46,83 @@ func Login(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	user := model.User{
-		Username: username,
-		Password: password,
-	}
-	err = user.ValidateAndFill()
-	if err != nil {
-		switch {
-		case errors.Is(err, model.ErrDatabase):
-			common.SysLog(fmt.Sprintf("Login database error for user %s: %v", username, err))
-			common.ApiErrorI18n(c, i18n.MsgDatabaseError)
-		case errors.Is(err, model.ErrUserEmptyCredentials):
-			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
-		default:
-			common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
-		}
-		return
-	}
 
-	// 检查是否启用2FA
-	if model.IsTwoFAEnabled(user.Id) {
-		// 设置pending session，等待2FA验证
-		session := sessions.Default(c)
-		session.Set("pending_username", user.Username)
-		session.Set("pending_user_id", user.Id)
-		err := session.Save()
+	loginType := common.IdentifyLoginInput(username)
+
+	switch loginType {
+	case "phone":
+		if !common.PhoneLoginEnabled {
+			common.ApiErrorI18n(c, i18n.MsgUserPasswordLoginDisabled)
+			return
+		}
+		user, err := service.PhoneLoginByPassword(username, password)
 		if err != nil {
-			common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
+			common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
+			return
+		}
+		if model.IsTwoFAEnabled(user.Id) {
+			session := sessions.Default(c)
+			session.Set("pending_username", user.Username)
+			session.Set("pending_user_id", user.Id)
+			if err := session.Save(); err != nil {
+				common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": i18n.T(c, i18n.MsgUserRequire2FA),
+				"success": true,
+				"data": map[string]interface{}{
+					"require_2fa": true,
+				},
+			})
+			return
+		}
+		setupLogin(user, c)
+		return
+	case "email":
+		fallthrough
+	default:
+		user := model.User{
+			Username: username,
+			Password: password,
+		}
+		err = user.ValidateAndFill()
+		if err != nil {
+			switch {
+			case errors.Is(err, model.ErrDatabase):
+				common.SysLog(fmt.Sprintf("Login database error for user %s: %v", username, err))
+				common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+			case errors.Is(err, model.ErrUserEmptyCredentials):
+				common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			default:
+				common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
+			}
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"message": i18n.T(c, i18n.MsgUserRequire2FA),
-			"success": true,
-			"data": map[string]interface{}{
-				"require_2fa": true,
-			},
-		})
+		if model.IsTwoFAEnabled(user.Id) {
+			session := sessions.Default(c)
+			session.Set("pending_username", user.Username)
+			session.Set("pending_user_id", user.Id)
+			err := session.Save()
+			if err != nil {
+				common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"message": i18n.T(c, i18n.MsgUserRequire2FA),
+				"success": true,
+				"data": map[string]interface{}{
+					"require_2fa": true,
+				},
+			})
+			return
+		}
+
+		setupLogin(&user, c)
 		return
 	}
-
-	setupLogin(&user, c)
 }
 
 // setup session & cookies and then return user info

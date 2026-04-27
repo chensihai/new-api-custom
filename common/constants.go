@@ -72,6 +72,9 @@ var EmailLoginAuthServerList = []string{
 var DebugEnabled bool
 var MemoryCacheEnabled bool
 
+var PhoneLoginEnabled = false
+var PhoneAuthForceRealNameAuth = false
+
 var LogConsumeEnabled = true
 
 var TLSInsecureSkipVerify bool

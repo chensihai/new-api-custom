@@ -55,6 +55,8 @@ func InitOptionMap() {
 	common.OptionMap["ChannelDisableThreshold"] = strconv.FormatFloat(common.ChannelDisableThreshold, 'f', -1, 64)
 	common.OptionMap["EmailDomainRestrictionEnabled"] = strconv.FormatBool(common.EmailDomainRestrictionEnabled)
 	common.OptionMap["EmailAliasRestrictionEnabled"] = strconv.FormatBool(common.EmailAliasRestrictionEnabled)
+	common.OptionMap["PhoneLoginEnabled"] = strconv.FormatBool(common.PhoneLoginEnabled)
+	common.OptionMap["PhoneAuthForceRealNameAuth"] = strconv.FormatBool(common.PhoneAuthForceRealNameAuth)
 	common.OptionMap["EmailDomainWhitelist"] = strings.Join(common.EmailDomainWhitelist, ",")
 	common.OptionMap["SMTPServer"] = common.SMTPServer
 	common.OptionMap["SMTPFrom"] = common.SMTPFrom
@@ -246,7 +248,7 @@ func updateOptionMap(key string, value string) (err error) {
 			common.ImageDownloadPermission = intValue
 		}
 	}
-	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" {
+	if strings.HasSuffix(key, "Enabled") || key == "DefaultCollapseSidebar" || key == "DefaultUseAutoGroup" || key == "SMTPForceAuthLogin" || key == "PhoneAuthForceRealNameAuth" {
 		boolValue := value == "true"
 		switch key {
 		case "PasswordRegisterEnabled":
@@ -265,6 +267,10 @@ func updateOptionMap(key string, value string) (err error) {
 			common.TelegramOAuthEnabled = boolValue
 		case "TurnstileCheckEnabled":
 			common.TurnstileCheckEnabled = boolValue
+		case "PhoneLoginEnabled":
+			common.PhoneLoginEnabled = boolValue
+		case "PhoneAuthForceRealNameAuth":
+			common.PhoneAuthForceRealNameAuth = boolValue
 		case "RegisterEnabled":
 			common.RegisterEnabled = boolValue
 		case "EmailDomainRestrictionEnabled":
@@ -581,6 +587,8 @@ func handleConfigUpdate(key, value string) bool {
 	} else if configName == "billing_setting" {
 		InvalidatePricingCache()
 		ratio_setting.InvalidateExposedDataCache()
+	} else if configName == "phone_auth" {
+		system_setting.GetPhoneAuthSettings().ApplyToCommon()
 	}
 
 	return true // 已处理

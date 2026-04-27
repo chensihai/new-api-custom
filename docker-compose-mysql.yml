@@ -1,0 +1,60 @@
+services:
+  new-api:
+    image: new-api:phone-auth-v9
+    container_name: new-api-mysql
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api?charset=utf8mb4&parseTime=True&loc=Local
+      - REDIS_CONN_STRING=redis://:123456@redis:6379
+      - SESSION_SECRET=test-secret-mysql-12345
+      - TZ=Asia/Shanghai
+      - PHONE_AUTH_ENABLED=true
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - new-api-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: new-api
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - new-api-network
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: always
+    command: ["redis-server", "--requirepass", "123456"]
+    networks:
+      - new-api-network
+
+volumes:
+  mysql_data:
+
+networks:
+  new-api-network:
+    driver: bridge

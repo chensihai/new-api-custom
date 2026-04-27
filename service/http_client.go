@@ -56,6 +56,7 @@ func InitHttpClient() {
 			CheckRedirect: checkRedirect,
 		}
 	}
+	common.SetGlobalHttpClient(httpClient)
 }
 
 func GetHttpClient() *http.Client {

@@ -39,7 +39,7 @@ import {
   IconDelete,
 } from '@douyinfe/semi-icons';
 import { SiTelegram, SiWechat, SiLinux, SiDiscord } from 'react-icons/si';
-import { UserPlus, ShieldCheck } from 'lucide-react';
+import { UserPlus, ShieldCheck, Phone as IconPhone } from 'lucide-react';
 import TelegramLoginButton from 'react-telegram-login';
 import {
   API,
@@ -53,6 +53,7 @@ import {
   getOAuthProviderIcon,
 } from '../../../../helpers';
 import TwoFASetting from '../components/TwoFASetting';
+import PhoneBindForm from '../../../PhoneBindForm';
 
 const AccountManagement = ({
   t,
@@ -101,6 +102,9 @@ const AccountManagement = ({
     React.useState(false);
   const [customOAuthBindings, setCustomOAuthBindings] = React.useState([]);
   const [customOAuthLoading, setCustomOAuthLoading] = React.useState({});
+  const [phoneAuthStatus, setPhoneAuthStatus] = React.useState(null);
+  const [phoneAuthEnabled, setPhoneAuthEnabled] = React.useState(false);
+  const [showPhoneBindModal, setShowPhoneBindModal] = React.useState(false);
 
   // Fetch custom OAuth bindings
   const loadCustomOAuthBindings = async () => {
@@ -161,6 +165,21 @@ const AccountManagement = ({
 
   React.useEffect(() => {
     loadCustomOAuthBindings();
+    API.get('/api/phone-auth/enabled')
+      .then((res) => {
+        if (res.data.success && res.data.data) {
+          setPhoneAuthEnabled(true);
+        }
+      })
+      .catch(() => {});
+    API.get('/api/phone-auth/status')
+      .then((res) => {
+        const { success, data } = res.data;
+        if (success && data) {
+          setPhoneAuthStatus(data);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const passkeyEnabled = passkeyStatus?.enabled;
@@ -517,6 +536,91 @@ const AccountManagement = ({
                 </div>
               </Card>
 
+              {/* 手机号绑定 */}
+              <Card className='!rounded-xl'>
+                <div className='flex items-center justify-between gap-3'>
+                  <div className='flex items-center flex-1 min-w-0'>
+                    <div className='w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mr-3 flex-shrink-0'>
+                      <IconPhone
+                        size={20}
+                        className='text-slate-600 dark:text-slate-300'
+                      />
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <div className='font-medium text-gray-900'>
+                        {t('手机号')}
+                      </div>
+                      <div className='text-sm text-gray-500 truncate'>
+                        {phoneAuthStatus?.phone
+                          ? phoneAuthStatus.phone
+                          : t('未绑定')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className='flex items-center gap-2 flex-shrink-0'>
+                    {phoneAuthStatus?.verified && (
+                      <span className='text-xs text-green-600'>
+                        {t('已认证')}
+                      </span>
+                    )}
+                    {!phoneAuthEnabled ? (
+                      <Button
+                        type='primary'
+                        theme='outline'
+                        size='small'
+                        disabled
+                      >
+                        {t('未启用')}
+                      </Button>
+                    ) : !phoneAuthStatus?.phone ? (
+                      <Button
+                        type='primary'
+                        theme='outline'
+                        size='small'
+                        onClick={() => setShowPhoneBindModal(true)}
+                      >
+                        {t('绑定手机号')}
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          type='primary'
+                          theme='outline'
+                          size='small'
+                          onClick={() => setShowPhoneBindModal(true)}
+                        >
+                          {t('换绑手机号')}
+                        </Button>
+                        <Button
+                          type='danger'
+                          theme='outline'
+                          size='small'
+                          onClick={async () => {
+                            try {
+                              const res = await API.post('/api/phone-auth/unbind');
+                              if (res.data.success) {
+                                showSuccess(t('解绑成功'));
+                                setPhoneAuthStatus(null);
+                                const statusRes = await API.get('/api/phone-auth/status');
+                                if (statusRes.data.success && statusRes.data.data) {
+                                  setPhoneAuthStatus(statusRes.data.data);
+                                }
+                              } else {
+                                showError(res.data.message);
+                              }
+                            } catch (error) {
+                              showError(t('操作失败'));
+                            }
+                          }}
+                        >
+                          {t('解绑手机号')}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </Card>
+
               {/* 自定义 OAuth 提供商绑定 */}
               {status.custom_oauth_providers &&
                 status.custom_oauth_providers.map((provider) => {
@@ -767,6 +871,17 @@ const AccountManagement = ({
           </div>
         </TabPane>
       </Tabs>
+
+      <Modal
+        title={t('手机号绑定')}
+        visible={showPhoneBindModal}
+        onCancel={() => setShowPhoneBindModal(false)}
+        footer={null}
+        centered
+        width={480}
+      >
+        <PhoneBindForm />
+      </Modal>
     </Card>
   );
 };

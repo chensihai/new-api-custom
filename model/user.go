@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -50,6 +51,10 @@ type User struct {
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	PhoneNumber      string         `json:"phone_number" gorm:"type:varchar(255);column:phone_number;index"`
+	PhoneAuthVerified bool          `json:"phone_auth_verified" gorm:"default:false;column:phone_auth_verified"`
+	PhoneAuthTime    *int64         `json:"phone_auth_time" gorm:"column:phone_auth_time"`
+	PhoneAuthProvider string        `json:"phone_auth_provider" gorm:"type:varchar(32);column:phone_auth_provider"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -1045,4 +1050,59 @@ func RootUserExists() bool {
 		return false
 	}
 	return true
+}
+
+func GetUserByPhone(phone string) (*User, error) {
+	encryptedPhone, err := common.EncryptPhone(phone)
+	if err != nil {
+		return nil, err
+	}
+	var user User
+	err = DB.Where("phone_number = ?", encryptedPhone).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (user *User) BindPhone(phone string, provider string) error {
+	encryptedPhone, err := common.EncryptPhone(phone)
+	if err != nil {
+		return err
+	}
+	now := time.Now().Unix()
+	return DB.Model(user).Updates(map[string]interface{}{
+		"phone_number":        encryptedPhone,
+		"phone_auth_verified": true,
+		"phone_auth_time":     &now,
+		"phone_auth_provider": provider,
+	}).Error
+}
+
+func (user *User) UnbindPhone() error {
+	return DB.Model(user).Updates(map[string]interface{}{
+		"phone_number":        "",
+		"phone_auth_verified": false,
+		"phone_auth_time":     nil,
+		"phone_auth_provider": "",
+	}).Error
+}
+
+func IsPhoneBound(phone string) (bool, error) {
+	encryptedPhone, err := common.EncryptPhone(phone)
+	if err != nil {
+		return false, err
+	}
+	var count int64
+	err = DB.Model(&User{}).Where("phone_number = ?", encryptedPhone).Count(&count).Error
+	return count > 0, err
+}
+
+func GetUserPhoneAuthVerified(userId int) bool {
+	var user User
+	err := DB.Where("id = ?", userId).Select("phone_auth_verified").First(&user).Error
+	if err != nil {
+		return false
+	}
+	return user.PhoneAuthVerified
 }

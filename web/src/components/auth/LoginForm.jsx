@@ -49,6 +49,8 @@ import {
   Form,
   Icon,
   Modal,
+  TabPane,
+  Tabs,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
@@ -64,6 +66,7 @@ import OIDCIcon from '../common/logo/OIDCIcon';
 import WeChatIcon from '../common/logo/WeChatIcon';
 import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import TwoFAVerification from './TwoFAVerification';
+import PhoneLoginForm from './PhoneLoginForm';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 
@@ -112,6 +115,8 @@ const LoginForm = () => {
   const githubTimeoutRef = useRef(null);
   const githubButtonText = t(githubButtonTextKeyByState[githubButtonState]);
   const [customOAuthLoading, setCustomOAuthLoading] = useState({});
+  const [phoneAuthEnabled, setPhoneAuthEnabled] = useState(false);
+  const [loginTab, setLoginTab] = useState(null);
 
   const logo = getLogo();
   const systemName = getSystemName();
@@ -158,6 +163,18 @@ const LoginForm = () => {
     isPasskeySupported()
       .then(setPasskeySupported)
       .catch(() => setPasskeySupported(false));
+
+    API.get('/api/phone-auth/enabled')
+      .then((res) => {
+        const { success, data } = res.data;
+        if (success && data && data.allow_phone_register) {
+          setPhoneAuthEnabled(true);
+        }
+        setLoginTab('password');
+      })
+      .catch(() => {
+        setLoginTab('password');
+      });
 
     return () => {
       if (githubTimeoutRef.current) {
@@ -744,11 +761,22 @@ const LoginForm = () => {
                   <span className='ml-3'>{t('使用 Passkey 登录')}</span>
                 </Button>
               )}
+              {phoneAuthEnabled && (
+                <Tabs
+                  activeKey={loginTab}
+                  onChange={setLoginTab}
+                  style={{ marginBottom: 12 }}
+                >
+                  <TabPane itemKey='password' tab={t('密码登录')} />
+                  <TabPane itemKey='phone' tab={t('手机号登录')} />
+                </Tabs>
+              )}
+              {(loginTab === 'password' || !phoneAuthEnabled) ? (
               <Form className='space-y-3'>
                 <Form.Input
                   field='username'
-                  label={t('用户名或邮箱')}
-                  placeholder={t('请输入您的用户名或邮箱地址')}
+                  label={t('用户名 或 邮箱 或 手机号码')}
+                  placeholder={t('用户名 或 邮箱 或 手机号码')}
                   name='username'
                   onChange={(value) => handleChange('username', value)}
                   prefix={<IconMail />}
@@ -828,6 +856,13 @@ const LoginForm = () => {
                   </Button>
                 </div>
               </Form>
+              ) : (
+              <PhoneLoginForm
+                agreedToTerms={agreedToTerms}
+                hasUserAgreement={hasUserAgreement}
+                hasPrivacyPolicy={hasPrivacyPolicy}
+              />
+              )}
 
               {hasOAuthLoginOptions && (
                 <>
