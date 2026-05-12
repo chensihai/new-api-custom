@@ -300,6 +300,9 @@ func ExtractEmailFromJWT(token string) (string, bool) {
 	return s, true
 }
 
+// decodeJWTClaims extracts claims from a JWT payload segment WITHOUT verifying the signature.
+// IMPORTANT: The returned claims are UNTRUSTED metadata. Do NOT use them for authentication
+// or authorization decisions. Only use for display hints (e.g., username, avatar).
 func decodeJWTClaims(token string) (map[string]any, bool) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {

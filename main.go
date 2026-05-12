@@ -24,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	_ "github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
@@ -175,7 +176,7 @@ func main() {
 		Path:     "/",
 		MaxAge:   2592000, // 30 days
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   strings.HasPrefix(system_setting.ServerAddress, "https://"),
 		SameSite: http.SameSiteStrictMode,
 	})
 	server.Use(sessions.Sessions("session", store))
@@ -252,6 +253,17 @@ func InitResources() error {
 
 	// 加载环境变量
 	common.InitEnv()
+
+	if os.Getenv("ENV") != "dev" && os.Getenv("ENV") != "development" {
+		sqlDsn := os.Getenv("SQL_DSN")
+		if strings.Contains(sqlDsn, ":123456@") {
+			common.SysLog("WARNING: SQL_DSN contains default password '123456'. This is insecure for production.")
+		}
+		redisConn := os.Getenv("REDIS_CONN_STRING")
+		if strings.Contains(redisConn, ":123456@") {
+			common.SysLog("WARNING: REDIS_CONN_STRING contains default password '123456'. This is insecure for production.")
+		}
+	}
 
 	logger.SetupLogger()
 

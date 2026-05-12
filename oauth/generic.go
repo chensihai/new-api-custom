@@ -150,7 +150,11 @@ func (p *GenericOAuthProvider) ExchangeToken(ctx context.Context, code string, c
 	}
 
 	bodyStr := string(body)
-	logger.LogDebug(ctx, "[OAuth-Generic-%s] ExchangeToken response body: %s", p.config.Slug, bodyStr[:min(len(bodyStr), 500)])
+	if len(bodyStr) > 500 {
+		logger.LogDebug(ctx, "[OAuth-Generic-%s] ExchangeToken response length: %d (body redacted for security)", p.config.Slug, len(bodyStr))
+	} else {
+		logger.LogDebug(ctx, "[OAuth-Generic-%s] ExchangeToken response length: %d (body redacted for security)", p.config.Slug, len(bodyStr))
+	}
 
 	// Try to parse as JSON first
 	var tokenResponse struct {

@@ -87,7 +87,12 @@ func InitEnv() {
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
 	NodeName = os.Getenv("NODE_NAME")
 	TLSInsecureSkipVerify = GetEnvOrDefaultBool("TLS_INSECURE_SKIP_VERIFY", false)
+	SMTPTLSSkipVerify = GetEnvOrDefaultBool("SMTP_TLS_SKIP_VERIFY", false)
 	if TLSInsecureSkipVerify {
+		env := os.Getenv("ENV")
+		if env != "dev" && env != "development" {
+			log.Fatalf("TLS_INSECURE_SKIP_VERIFY=true is not allowed in production. Set ENV=dev to override.")
+		}
 		if tr, ok := http.DefaultTransport.(*http.Transport); ok && tr != nil {
 			if tr.TLSClientConfig != nil {
 				tr.TLSClientConfig.InsecureSkipVerify = true
