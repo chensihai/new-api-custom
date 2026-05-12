@@ -148,6 +148,13 @@ mkdir -p /opt/new-api
 cd /opt/new-api
 ```
 
+> **权限说明**：如需将数据目录挂载到本地，请确保目录权限正确：
+> ```bash
+> # 创建数据目录并设置权限（MySQL 需要 999 用户）
+> mkdir -p /opt/new-api/data/mysql
+> chown -R 999:999 /opt/new-api/data/mysql
+> ```
+
 ### 4.2 上传文件（选择一种方式）
 
 **方式一：使用 Git 克隆（推荐）**
@@ -273,18 +280,15 @@ curl http://localhost:3000/api/status
 http://你的服务器公网IP:3000
 ```
 
-**首次访问需要注册管理员账号**：
-1. 点击"注册"
-2. 输入用户名：`ciywu`
-3. 输入密码：`12345678`
-4. 注册成功后即可登录
+**首次登录说明**：
 
-**设置为管理员**（MySQL 模式）：
-```bash
-docker exec mysql mysql -uroot -p12345678 new-api -e "UPDATE users SET role=100 WHERE username='ciywu';"
-```
+系统预设了默认管理员账号：
+- **用户名**：`root`
+- **密码**：`123456`
 
-刷新页面后即可看到管理功能。
+⚠️ **登录后请立即进入"个人设置"修改默认密码！**
+
+> 如需使用自定义账号（如 ciywu），可在登录后进入"用户管理"创建新用户并设置为管理员。
 
 ### 7.4 配置防火墙（重要！）
 
@@ -332,10 +336,12 @@ docker compose -f docker-compose-mysql.yml down
 ### 8.4 更新镜像
 
 ```bash
-# 拉取新镜像
-docker pull new-api:latest
+cd /opt/new-api
 
-# 重启服务
+# 拉取最新镜像（docker compose 会自动拉取所需镜像）
+docker compose -f docker-compose-mysql.yml pull
+
+# 重启服务使用新镜像
 docker compose -f docker-compose-mysql.yml up -d
 ```
 
@@ -369,7 +375,7 @@ docker compose -f docker-compose-mysql.yml logs new-api
 docker ps
 
 # 2. 检查端口是否监听
-netstat -tlnp | grep 3000
+ss -tlnp | grep 3000
 
 # 3. 检查防火墙
 # 腾讯云控制台 → 防火墙 → 确认 3000 端口已放行
@@ -475,6 +481,17 @@ certbot renew --dry-run
 
 Certbot 会自动添加续期定时任务。
 
+### A.5 防火墙放行 HTTPS 端口
+
+配置 HTTPS 后，需要在腾讯云控制台放行 HTTP/HTTPS 端口：
+
+1. 进入服务器详情页 → 防火墙
+2. 添加规则：
+   - 协议：TCP，端口：80，策略：允许
+   - 协议：TCP，端口：443，策略：允许
+
+⚠️ **安全建议**：配置 Nginx 后，**应关闭公网 3000 端口**，仅保留 80/443 端口开放。
+
 ---
 
 ## 附录 B：资源限制说明
@@ -493,11 +510,12 @@ Docker Compose 已配置资源限制，防止单个服务吃满内存：
 
 ## 附录 C：安全建议
 
-1. **修改默认密码**：`.env` 文件中的密码必须修改
-2. **限制端口暴露**：仅开放 3000 端口，数据库端口不对外开放
-3. **定期备份**：使用 `docker exec mysql mysqldump` 备份数据库
-4. **更新镜像**：定期 `docker pull` 更新到最新版本
-5. **配置 HTTPS**：生产环境强烈建议使用 HTTPS
+1. **修改默认密码**：`.env` 文件中的密码必须修改，登录后立即修改 Web 管理员密码
+2. **限制端口暴露**：仅开放 3000 端口，数据库端口（3306、5432、6379）不对外开放
+3. **Nginx 反代安全**：配置 Nginx 后，将服务端口绑定到 `127.0.0.1:3000`，关闭公网 3000 端口，仅开放 80/443
+4. **定期备份**：使用 `docker exec mysql mysqldump` 备份数据库
+5. **更新镜像**：定期 `docker compose pull` 更新到最新版本
+6. **配置 HTTPS**：生产环境强烈建议使用 HTTPS，防止密码被窃听
 
 ---
 
