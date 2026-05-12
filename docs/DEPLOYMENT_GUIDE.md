@@ -148,39 +148,25 @@ mkdir -p /opt/new-api
 cd /opt/new-api
 ```
 
-> **权限说明**：如需将数据目录挂载到本地，请确保目录权限正确：
-> ```bash
-> # 创建数据目录并设置权限（MySQL 需要 999 用户）
-> mkdir -p /opt/new-api/data/mysql
-> chown -R 999:999 /opt/new-api/data/mysql
-> ```
+### 4.2 克隆项目仓库
 
-### 4.2 上传文件（选择一种方式）
-
-**方式一：使用 Git 克隆（推荐）**
+本项目使用自定义修改的代码，需要从自己的 GitHub 仓库克隆：
 
 ```bash
 apt install git -y
-git clone https://github.com/你的用户名/new-api.git .
+
+# 克隆你的自定义仓库（替换为你的仓库地址）
+git clone https://github.com/chensihai/new-api-custom.git .
+
+# 或者使用 SSH 方式（推荐，更安全）
+# git clone git@github.com:chensihai/new-api-custom.git .
 ```
 
-**方式二：使用 SCP 上传**
-
-在本地电脑执行：
-
-```bash
-# 上传 docker-compose-mysql.yml
-scp docker-compose-mysql.yml root@你的服务器IP:/opt/new-api/
-
-# 如果有自定义镜像文件
-scp new-api.tar root@你的服务器IP:/opt/new-api/
-```
-
-然后在服务器上加载镜像：
-
-```bash
-docker load -i new-api.tar
-```
+> **说明**：克隆后会在 `/opt/new-api` 目录下得到完整源码，包括：
+> - `Dockerfile` — 用于构建自定义镜像
+> - `docker-compose-mysql.yml` — MySQL 部署配置
+> - `web/` — 前端源码
+> - Go 后端源码
 
 ---
 
@@ -192,18 +178,21 @@ docker load -i new-api.tar
 cd /opt/new-api
 
 cat > .env << 'EOF'
-# ========== 默认管理员账号 ==========
-# 首次访问时使用以下账号注册
-# 用户名：ciywu
-# 密码：12345678
+# ========== 请修改以下密码 ==========
+# MySQL root 密码（建议 16 位以上，包含字母数字符号）
+MYSQL_ROOT_PASSWORD=YourStrongPassword123!@#
 
-# ========== 数据库密码 ==========
-MYSQL_ROOT_PASSWORD=12345678
-REDIS_PASSWORD=12345678
-SESSION_SECRET=ciywu-new-api-session-secret-2024
+# Redis 密码
+REDIS_PASSWORD=YourRedisPassword456!@
 
-# ========== 其他配置 ==========
+# Session 密钥（随机字符串，32位以上）
+SESSION_SECRET=ChangeThisToRandomString32Chars
+
+# ========== 以下通常不需要修改 ==========
+# 时区
 TZ=Asia/Shanghai
+
+# 是否启用手机号认证
 PHONE_AUTH_ENABLED=false
 EOF
 ```
@@ -230,7 +219,37 @@ openssl rand -base64 32
 | MySQL 模式 | docker-compose-mysql.yml | MySQL 8.0 | **推荐**，生产环境 |
 | PostgreSQL 模式 | docker-compose-prod.yml | PostgreSQL 15 | 需要高级特性 |
 
-### 6.2 启动服务（MySQL 模式）
+### 6.2 构建自定义镜像
+
+由于使用自定义修改的代码，需要在服务器上构建 Docker 镜像：
+
+```bash
+cd /opt/new-api
+
+# 构建镜像（约 3-5 分钟，首次会下载依赖）
+docker build -t new-api:latest .
+```
+
+构建过程说明：
+1. **第一阶段**：编译前端（使用 Bun）
+2. **第二阶段**：编译后端（使用 Go）
+3. **第三阶段**：打包最终镜像
+
+> **国内网络加速**：如遇 Docker Hub 拉取超时，可配置镜像加速：
+> ```bash
+> # 编辑 Docker 配置（已有 daemon.json 则追加）
+> cat >> /etc/docker/daemon.json << 'EOF'
+> {
+>   "registry-mirrors": [
+>     "https://docker.1ms.run",
+>     "https://docker.xuanyuan.me"
+>   ]
+> }
+> EOF
+> systemctl restart docker
+> ```
+
+### 6.3 启动服务（MySQL 模式）
 
 ```bash
 cd /opt/new-api
@@ -248,7 +267,7 @@ docker compose -f docker-compose-mysql.yml up -d
  ✔ Container new-api-mysql  Started
 ```
 
-### 6.3 等待服务就绪
+### 6.4 等待服务就绪
 
 首次启动需要初始化数据库，大约等待 30-60 秒。
 
@@ -280,15 +299,10 @@ curl http://localhost:3000/api/status
 http://你的服务器公网IP:3000
 ```
 
-**首次登录说明**：
-
-系统预设了默认管理员账号：
-- **用户名**：`root`
-- **密码**：`123456`
-
-⚠️ **登录后请立即进入"个人设置"修改默认密码！**
-
-> 如需使用自定义账号（如 ciywu），可在登录后进入"用户管理"创建新用户并设置为管理员。
+**首次访问需要注册管理员账号**：
+1. 点击"注册"
+2. 输入用户名和密码
+3. 注册成功后即可登录
 
 ### 7.4 配置防火墙（重要！）
 
@@ -333,17 +347,24 @@ docker compose -f docker-compose-mysql.yml restart new-api
 docker compose -f docker-compose-mysql.yml down
 ```
 
-### 8.4 更新镜像
+### 8.4 更新版本
+
+当 GitHub 仓库有新代码更新时：
 
 ```bash
 cd /opt/new-api
 
-# 拉取最新镜像（docker compose 会自动拉取所需镜像）
-docker compose -f docker-compose-mysql.yml pull
+# 1. 拉取最新代码
+git pull origin dev  # 或 main，根据你的分支
 
-# 重启服务使用新镜像
+# 2. 重新构建镜像
+docker build -t new-api:latest .
+
+# 3. 重启服务使用新镜像
 docker compose -f docker-compose-mysql.yml up -d
 ```
+
+> **提示**：构建过程约 3-5 分钟，期间服务仍可正常运行，新镜像构建完成后会自动切换。
 
 ### 8.5 查看资源使用
 
@@ -375,7 +396,7 @@ docker compose -f docker-compose-mysql.yml logs new-api
 docker ps
 
 # 2. 检查端口是否监听
-ss -tlnp | grep 3000
+netstat -tlnp | grep 3000
 
 # 3. 检查防火墙
 # 腾讯云控制台 → 防火墙 → 确认 3000 端口已放行
@@ -481,17 +502,6 @@ certbot renew --dry-run
 
 Certbot 会自动添加续期定时任务。
 
-### A.5 防火墙放行 HTTPS 端口
-
-配置 HTTPS 后，需要在腾讯云控制台放行 HTTP/HTTPS 端口：
-
-1. 进入服务器详情页 → 防火墙
-2. 添加规则：
-   - 协议：TCP，端口：80，策略：允许
-   - 协议：TCP，端口：443，策略：允许
-
-⚠️ **安全建议**：配置 Nginx 后，**应关闭公网 3000 端口**，仅保留 80/443 端口开放。
-
 ---
 
 ## 附录 B：资源限制说明
@@ -512,14 +522,14 @@ Docker Compose 已配置资源限制，防止单个服务吃满内存：
 
 1. **修改默认密码**：`.env` 文件中的密码必须修改，登录后立即修改 Web 管理员密码
 2. **限制端口暴露**：仅开放 3000 端口，数据库端口（3306、5432、6379）不对外开放
-3. **Nginx 反代安全**：配置 Nginx 后，将服务端口绑定到 `127.0.0.1:3000`，关闭公网 3000 端口，仅开放 80/443
+3. **Nginx 反代安全**：配置 Nginx 后，关闭公网 3000 端口，仅开放 80/443
 4. **定期备份**：使用 `docker exec mysql mysqldump` 备份数据库
-5. **更新镜像**：定期 `docker compose pull` 更新到最新版本
+5. **定期更新**：定期 `git pull` 拉取代码并重新构建镜像
 6. **配置 HTTPS**：生产环境强烈建议使用 HTTPS，防止密码被窃听
 
 ---
 
 ## 联系支持
 
-如有问题，请提交 Issue：
-https://github.com/你的用户名/new-api/issues
+如有问题，请在 GitHub 提交 Issue：
+https://github.com/chensihai/new-api-custom/issues
