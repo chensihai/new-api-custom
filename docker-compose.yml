@@ -1,18 +1,10 @@
-# New-API Docker Compose Configuration
-# 
+# New-API Docker Compose Configuration (Debug build with Delve, optimized for 2C4G)
+#
 # Quick Start:
-#   1. docker-compose up -d
+#   1. docker compose -f docker-compose.yml up -d
 #   2. Access at http://localhost:3000
 #
-# Using MySQL instead of PostgreSQL:
-#   1. Comment out the postgres service and SQL_DSN line 15
-#   2. Uncomment the mysql service and SQL_DSN line 16
-#   3. Uncomment mysql in depends_on (line 28)
-#   4. Uncomment mysql_data in volumes section (line 64)
-#
 # ⚠️  IMPORTANT: Change all default passwords before deploying to production!
-
-version: '3.4' # For compatibility with older Docker versions
 
 services:
   new-api:
@@ -48,21 +40,13 @@ services:
       - go-build-cache:/root/.cache/go-build
     environment:
       - PATH=/usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      - SQL_DSN=postgresql://root:123456@postgres:5432/new-api # ⚠️ IMPORTANT: Change the password in production!
-#      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api  # Point to the mysql service, uncomment if using MySQL
-      - REDIS_CONN_STRING=redis://:123456@redis:6379 # ⚠️ IMPORTANT: Change the password in production!
+      - SQL_DSN=postgresql://root:${PG_PASSWORD:-123456}@postgres:5432/new-api
+      - REDIS_CONN_STRING=redis://:${REDIS_PASSWORD:-123456}@redis:6379
       - TZ=Asia/Shanghai
-      - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
-      - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
-      - NODE_NAME=new-api-node-1  # 节点名称，用于审计日志中标识节点身份；多节点/容器部署时建议设置 (Node name used in audit logs; recommended when running multiple instances or in containers)
-#      - STREAMING_TIMEOUT=300  # 流模式无响应超时时间，单位秒，默认120秒，如果出现空补全可以尝试改为更大值 （Streaming timeout in seconds, default is 120s. Increase if experiencing empty completions）
-#      - SESSION_SECRET=random_string  # 多机部署时设置，必须修改这个随机字符串！！ （multi-node deployment, set this to a random string!!!!!!!）
-#      - SYNC_FREQUENCY=60  # Uncomment if regular database syncing is needed
-#      - GOOGLE_ANALYTICS_ID=G-XXXXXXXXXX  # Google Analytics 的测量 ID (Google Analytics Measurement ID)
-#      - UMAMI_WEBSITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  # Umami 网站 ID (Umami Website ID)
-#      - UMAMI_SCRIPT_URL=https://analytics.umami.is/script.js  # Umami 脚本 URL，默认为官方地址 (Umami Script URL, defaults to official URL)
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      - NODE_NAME=new-api-node-1
 
-  # --- MailHog SMTP Settings ---
       - SMTP_SERVER=mailhog
       - SMTP_PORT=1025
       - SMTP_ACCOUNT=noreply@example.com
@@ -71,9 +55,10 @@ services:
       - SMTP_SSL=false
 
     depends_on:
-      - redis
-      - postgres
-#      - mysql  # Uncomment if using MySQL
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
     networks:
       - new-api-network
     healthcheck:
@@ -81,14 +66,40 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:latest
     container_name: redis
     restart: always
-    command: ["redis-server", "--requirepass", "123456"]  # ⚠️ IMPORTANT: Change this password in production!
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-123456}", "--maxmemory", "200mb", "--maxmemory-policy", "allkeys-lru"]
     networks:
       - new-api-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
   postgres:
     image: postgres:15
@@ -96,28 +107,33 @@ services:
     restart: always
     environment:
       POSTGRES_USER: root
-      POSTGRES_PASSWORD: 123456  # ⚠️ IMPORTANT: Change this password in production!
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-123456}
       POSTGRES_DB: new-api
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=512MB", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=64MB", "-c", "max_connections=100"]
     volumes:
       - pg_data:/var/lib/postgresql/data
     networks:
       - new-api-network
-#    ports:
-#      - "5432:5432"  # Uncomment if you need to access PostgreSQL from outside Docker
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d new-api"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 1024M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-#  mysql:
-#    image: mysql:8.2
-#    container_name: mysql
-#    restart: always
-#    environment:
-#      MYSQL_ROOT_PASSWORD: 123456  # ⚠️ IMPORTANT: Change this password in production!
-#      MYSQL_DATABASE: new-api
-#    volumes:
-#      - mysql_data:/var/lib/mysql
-#    networks:
-#      - new-api-network
-#    ports:
-#      - "3306:3306"  # Uncomment if you need to access MySQL from outside Docker
   dbadmin:
     image: adminer:latest
     container_name: dbadmin
@@ -129,22 +145,41 @@ services:
       - redis
     networks:
       - new-api-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
   mailhog:
     image: mailhog/mailhog
     container_name: mailhog
     restart: always
-
     ports:
       - "8025:8025"
       - "1025:1025"
     networks:
       - new-api-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   pg_data:
   go-mod-cache:
   go-build-cache:
-#  mysql_data:
 
 networks:
   new-api-network:

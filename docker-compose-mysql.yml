@@ -1,16 +1,25 @@
+# New-API Docker Compose Configuration (MySQL, optimized for 2C4G)
+#
+# Quick Start:
+#   1. cp .env.example .env && edit passwords
+#   2. docker compose -f docker-compose-mysql.yml up -d
+#   3. Access at http://localhost:3000
+#
+# ⚠️  IMPORTANT: Change all default passwords before deploying to production!
+
 services:
   new-api:
-    image: new-api:phone-auth-v9
+    image: new-api:latest
     container_name: new-api-mysql
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - SQL_DSN=root:123456@tcp(mysql:3306)/new-api?charset=utf8mb4&parseTime=True&loc=Local
-      - REDIS_CONN_STRING=redis://:123456@redis:6379
-      - SESSION_SECRET=test-secret-mysql-12345
+      - SQL_DSN=root:${MYSQL_ROOT_PASSWORD:-123456}@tcp(mysql:3306)/new-api?charset=utf8mb4&parseTime=True&loc=Local
+      - REDIS_CONN_STRING=redis://:${REDIS_PASSWORD:-123456}@redis:6379
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
       - TZ=Asia/Shanghai
-      - PHONE_AUTH_ENABLED=true
+      - PHONE_AUTH_ENABLED=${PHONE_AUTH_ENABLED:-false}
     depends_on:
       mysql:
         condition: service_healthy
@@ -20,37 +29,83 @@ services:
       - new-api-network
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -o '\"success\":\\s*true' || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   mysql:
     image: mysql:8.0
     container_name: mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-123456}
       MYSQL_DATABASE: new-api
+    command:
+      - --innodb-buffer-pool-size=512M
+      - --innodb-log-buffer-size=64M
+      - --max-connections=100
+      - --table-open-cache=400
+      - --thread-cache-size=16
+      - --query-cache-size=0
+      - --slow-query-log=1
+      - --long-query-time=2
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - new-api-network
-    ports:
-      - "3306:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.8'
+          memory: 1536M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: redis:latest
     container_name: redis
     restart: always
-    command: ["redis-server", "--requirepass", "123456"]
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-123456}", "--maxmemory", "200mb", "--maxmemory-policy", "allkeys-lru"]
     networks:
       - new-api-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   mysql_data:
