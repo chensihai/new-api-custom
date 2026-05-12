@@ -1,10 +1,14 @@
 # New-API Docker Compose Configuration (Debug build with Delve, optimized for 2C4G)
 #
 # Quick Start:
-#   1. docker compose -f docker-compose.yml up -d
-#   2. Access at http://localhost:3000
+#   1. cp .env.example .env
+#   2. docker compose -f docker-compose.yml up -d
+#   3. Access http://服务器IP:3000
+#   4. Register with: ciywu / 12345678
+#   5. Set admin role: docker exec postgres psql -U root -d new-api -c "UPDATE users SET role=100 WHERE username='ciywu';"
 #
-# ⚠️  IMPORTANT: Change all default passwords before deploying to production!
+# Default Admin Account: ciywu / 12345678
+# ⚠️  IMPORTANT: Change passwords in .env before production deployment!
 
 services:
   new-api:

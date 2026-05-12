@@ -185,21 +185,18 @@ docker load -i new-api.tar
 cd /opt/new-api
 
 cat > .env << 'EOF'
-# ========== 请修改以下密码 ==========
-# MySQL root 密码（建议 16 位以上，包含字母数字符号）
-MYSQL_ROOT_PASSWORD=YourStrongPassword123!@#
+# ========== 默认管理员账号 ==========
+# 首次访问时使用以下账号注册
+# 用户名：ciywu
+# 密码：12345678
 
-# Redis 密码
-REDIS_PASSWORD=YourRedisPassword456!@
+# ========== 数据库密码 ==========
+MYSQL_ROOT_PASSWORD=12345678
+REDIS_PASSWORD=12345678
+SESSION_SECRET=ciywu-new-api-session-secret-2024
 
-# Session 密钥（随机字符串，32位以上）
-SESSION_SECRET=ChangeThisToRandomString32Chars
-
-# ========== 以下通常不需要修改 ==========
-# 时区
+# ========== 其他配置 ==========
 TZ=Asia/Shanghai
-
-# 是否启用手机号认证
 PHONE_AUTH_ENABLED=false
 EOF
 ```
@@ -278,8 +275,16 @@ http://你的服务器公网IP:3000
 
 **首次访问需要注册管理员账号**：
 1. 点击"注册"
-2. 输入用户名和密码
-3. 注册成功后即可登录
+2. 输入用户名：`ciywu`
+3. 输入密码：`12345678`
+4. 注册成功后即可登录
+
+**设置为管理员**（MySQL 模式）：
+```bash
+docker exec mysql mysql -uroot -p12345678 new-api -e "UPDATE users SET role=100 WHERE username='ciywu';"
+```
+
+刷新页面后即可看到管理功能。
 
 ### 7.4 配置防火墙（重要！）
 
