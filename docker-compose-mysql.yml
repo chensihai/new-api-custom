@@ -62,7 +62,6 @@ services:
       - --max-connections=100
       - --table-open-cache=400
       - --thread-cache-size=16
-      - --query-cache-size=0
       - --slow-query-log=1
       - --long-query-time=2
     volumes:
