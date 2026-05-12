@@ -219,14 +219,40 @@ openssl rand -base64 32
 | MySQL 模式 | docker-compose-mysql.yml | MySQL 8.0 | **推荐**，生产环境 |
 | PostgreSQL 模式 | docker-compose-prod.yml | PostgreSQL 15 | 需要高级特性 |
 
-### 6.2 构建自定义镜像
+### 6.2 下载预构建镜像（推荐）
 
-由于使用自定义修改的代码，需要在服务器上构建 Docker 镜像：
+镜像已预构建并上传到 GitHub Release，可直接下载：
 
 ```bash
 cd /opt/new-api
 
-# 构建镜像（约 3-5 分钟，首次会下载依赖）
+# 下载镜像文件（从 GitHub Release）
+wget https://github.com/chensihai/new-api-custom/releases/latest/download/new-api-custom.tar
+
+# 加载镜像到 Docker
+docker load -i new-api-custom.tar
+
+# 验证镜像
+docker images | grep new-api
+```
+
+看到 `new-api latest` 表示镜像加载成功。
+
+> **国内网络加速**：如 GitHub 下载慢，可使用镜像站：
+> ```bash
+> # 使用 ghproxy 加速
+> wget https://ghproxy.com/https://github.com/chensihai/new-api-custom/releases/latest/download/new-api-custom.tar
+> ```
+
+<details>
+<summary>备用方案：在服务器上构建镜像（点击展开）</summary>
+
+如需自行构建（例如修改了代码）：
+
+```bash
+cd /opt/new-api
+
+# 构建镜像（约 3-5 分钟）
 docker build -t new-api:latest .
 ```
 
@@ -235,9 +261,8 @@ docker build -t new-api:latest .
 2. **第二阶段**：编译后端（使用 Go）
 3. **第三阶段**：打包最终镜像
 
-> **国内网络加速**：如遇 Docker Hub 拉取超时，可配置镜像加速：
+> 如遇 Docker Hub 拉取超时，可配置镜像加速：
 > ```bash
-> # 编辑 Docker 配置（已有 daemon.json 则追加）
 > cat >> /etc/docker/daemon.json << 'EOF'
 > {
 >   "registry-mirrors": [
@@ -248,6 +273,7 @@ docker build -t new-api:latest .
 > EOF
 > systemctl restart docker
 > ```
+</details>
 
 ### 6.3 启动服务（MySQL 模式）
 
@@ -349,22 +375,22 @@ docker compose -f docker-compose-mysql.yml down
 
 ### 8.4 更新版本
 
-当 GitHub 仓库有新代码更新时：
+当 GitHub Release 发布新版本镜像时：
 
 ```bash
 cd /opt/new-api
 
-# 1. 拉取最新代码
-git pull origin dev  # 或 main，根据你的分支
+# 1. 下载新版本镜像
+wget https://github.com/chensihai/new-api-custom/releases/latest/download/new-api-custom.tar
 
-# 2. 重新构建镜像
-docker build -t new-api:latest .
+# 2. 加载新镜像（会覆盖旧镜像）
+docker load -i new-api-custom.tar
 
 # 3. 重启服务使用新镜像
 docker compose -f docker-compose-mysql.yml up -d
 ```
 
-> **提示**：构建过程约 3-5 分钟，期间服务仍可正常运行，新镜像构建完成后会自动切换。
+> **提示**：下载约 1-2 分钟，加载约 10 秒，期间服务仍可正常运行。
 
 ### 8.5 查看资源使用
 
@@ -524,7 +550,7 @@ Docker Compose 已配置资源限制，防止单个服务吃满内存：
 2. **限制端口暴露**：仅开放 3000 端口，数据库端口（3306、5432、6379）不对外开放
 3. **Nginx 反代安全**：配置 Nginx 后，关闭公网 3000 端口，仅开放 80/443
 4. **定期备份**：使用 `docker exec mysql mysqldump` 备份数据库
-5. **定期更新**：定期 `git pull` 拉取代码并重新构建镜像
+5. **定期更新**：关注 GitHub Release，定期下载新版本镜像更新
 6. **配置 HTTPS**：生产环境强烈建议使用 HTTPS，防止密码被窃听
 
 ---
