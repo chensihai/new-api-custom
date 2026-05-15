@@ -120,6 +120,18 @@ func InitOptionMap() {
 	common.OptionMap["WaffoPancakeCurrency"] = setting.WaffoPancakeCurrency
 	common.OptionMap["WaffoPancakeUnitPrice"] = strconv.FormatFloat(setting.WaffoPancakeUnitPrice, 'f', -1, 64)
 	common.OptionMap["WaffoPancakeMinTopUp"] = strconv.Itoa(setting.WaffoPancakeMinTopUp)
+	common.OptionMap["AlipayEnabled"] = strconv.FormatBool(setting.AlipayEnabled)
+	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
+	common.OptionMap["AlipayAppId"] = setting.AlipayAppId
+	common.OptionMap["AlipayPrivateKey"] = setting.AlipayPrivateKey
+	common.OptionMap["AlipayPublicKey"] = setting.AlipayPublicKey
+	common.OptionMap["AlipayMinTopUp"] = strconv.Itoa(setting.AlipayMinTopUp)
+	common.OptionMap["WechatPayEnabled"] = strconv.FormatBool(setting.WechatPayEnabled)
+	common.OptionMap["WechatPayMchID"] = setting.WechatPayMchID
+	common.OptionMap["WechatPayAPIv3Key"] = setting.WechatPayAPIv3Key
+	common.OptionMap["WechatPaySerialNo"] = setting.WechatPaySerialNo
+	common.OptionMap["WechatPayPrivateKey"] = setting.WechatPayPrivateKey
+	common.OptionMap["WechatPayMinTopUp"] = strconv.Itoa(setting.WechatPayMinTopUp)
 	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
@@ -449,6 +461,60 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoPancakeUnitPrice, _ = strconv.ParseFloat(value, 64)
 	case "WaffoPancakeMinTopUp":
 		setting.WaffoPancakeMinTopUp, _ = strconv.Atoi(value)
+	case "AlipayEnabled":
+		setting.AlipayEnabled = value == "true"
+		if setting.OnAlipayConfigChange != nil {
+			setting.OnAlipayConfigChange()
+		}
+	case "AlipaySandbox":
+		setting.AlipaySandbox = value == "true"
+		if setting.OnAlipayConfigChange != nil {
+			setting.OnAlipayConfigChange()
+		}
+	case "AlipayAppId":
+		setting.AlipayAppId = value
+		if setting.OnAlipayConfigChange != nil {
+			setting.OnAlipayConfigChange()
+		}
+	case "AlipayPrivateKey":
+		setting.AlipayPrivateKey = value
+		if setting.OnAlipayConfigChange != nil {
+			setting.OnAlipayConfigChange()
+		}
+	case "AlipayPublicKey":
+		setting.AlipayPublicKey = value
+		if setting.OnAlipayConfigChange != nil {
+			setting.OnAlipayConfigChange()
+		}
+	case "AlipayMinTopUp":
+		setting.AlipayMinTopUp, _ = strconv.Atoi(value)
+	case "WechatPayEnabled":
+		setting.WechatPayEnabled = value == "true"
+		if setting.OnWechatPayConfigChange != nil {
+			setting.OnWechatPayConfigChange()
+		}
+	case "WechatPayMchID":
+		setting.WechatPayMchID = value
+		if setting.OnWechatPayConfigChange != nil {
+			setting.OnWechatPayConfigChange()
+		}
+	case "WechatPayAPIv3Key":
+		setting.WechatPayAPIv3Key = value
+		if setting.OnWechatPayConfigChange != nil {
+			setting.OnWechatPayConfigChange()
+		}
+	case "WechatPaySerialNo":
+		setting.WechatPaySerialNo = value
+		if setting.OnWechatPayConfigChange != nil {
+			setting.OnWechatPayConfigChange()
+		}
+	case "WechatPayPrivateKey":
+		setting.WechatPayPrivateKey = value
+		if setting.OnWechatPayConfigChange != nil {
+			setting.OnWechatPayConfigChange()
+		}
+	case "WechatPayMinTopUp":
+		setting.WechatPayMinTopUp, _ = strconv.Atoi(value)
 	case "TopupGroupRatio":
 		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":
