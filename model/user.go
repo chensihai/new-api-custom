@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
@@ -51,10 +52,8 @@ type User struct {
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
-	PhoneNumber      string         `json:"phone_number" gorm:"type:varchar(255);column:phone_number;index"`
-	PhoneAuthVerified bool          `json:"phone_auth_verified" gorm:"default:false;column:phone_auth_verified"`
-	PhoneAuthTime    *int64         `json:"phone_auth_time" gorm:"column:phone_auth_time"`
-	PhoneAuthProvider string        `json:"phone_auth_provider" gorm:"type:varchar(32);column:phone_auth_provider"`
+	CreatedAt        int64          `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	LastLoginAt      int64          `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -423,7 +422,7 @@ func (user *User) Insert(inviterId int) error {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
-	if inviterId != 0 {
+	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
 			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
 			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
@@ -484,7 +483,7 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
-	if inviterId != 0 {
+	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
 		if common.QuotaForInvitee > 0 {
 			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
 			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
@@ -954,6 +953,12 @@ func DeltaUpdateUserQuota(id int, delta int) (err error) {
 func GetRootUser() (user *User) {
 	DB.Where("role = ?", common.RoleRootUser).First(&user)
 	return user
+}
+
+func UpdateUserLastLoginAt(id int) {
+	if err := DB.Model(&User{}).Where("id = ?", id).Update("last_login_at", common.GetTimestamp()).Error; err != nil {
+		common.SysLog("failed to update user last_login_at: " + err.Error())
+	}
 }
 
 func UpdateUserUsedQuotaAndRequestCount(id int, quota int) {
