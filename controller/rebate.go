@@ -268,16 +268,14 @@ func UpdateRebateSettings(c *gin.Context) {
 		groups = *req.RebateVisibleGroups
 	}
 
-	setting.UpdateRebateSettings(enabled, period, groups)
-
 	if req.RebateEnabled != nil {
-		_ = model.UpdateOption("RebateEnabled", strconv.FormatBool(enabled))
+		_ = model.UpdateOption("rebate_setting.enabled", strconv.FormatBool(enabled))
 	}
 	if req.SettlementPeriod != nil {
-		_ = model.UpdateOption("SettlementPeriod", strconv.Itoa(period))
+		_ = model.UpdateOption("rebate_setting.settlement_period", strconv.Itoa(period))
 	}
 	if req.RebateVisibleGroups != nil {
-		_ = model.UpdateOption("RebateVisibleGroups", groups)
+		_ = model.UpdateOption("rebate_setting.visible_groups", groups)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "更新成功"})

@@ -2,49 +2,40 @@ package setting
 
 import (
 	"strings"
-	"sync"
+
+	"github.com/QuantumNous/new-api/setting/config"
 )
 
-var (
-	RebateEnabled        bool
-	SettlementPeriod     int
-	RebateVisibleGroups  string
-	rebateSettingMu      sync.RWMutex
-)
+type RebateSetting struct {
+	Enabled        bool   `json:"enabled"`
+	SettlementPeriod int  `json:"settlement_period"`
+	VisibleGroups  string `json:"visible_groups"`
+}
 
-const (
-	DefaultSettlementPeriod = 7
-)
+var rebateSetting = RebateSetting{
+	Enabled:          false,
+	SettlementPeriod: 7,
+	VisibleGroups:    "",
+}
 
 func init() {
-	RebateEnabled = false
-	SettlementPeriod = DefaultSettlementPeriod
-	RebateVisibleGroups = ""
+	config.GlobalConfig.Register("rebate_setting", &rebateSetting)
 }
 
 func IsRebateEnabled() bool {
-	rebateSettingMu.RLock()
-	defer rebateSettingMu.RUnlock()
-	return RebateEnabled
+	return rebateSetting.Enabled
 }
 
 func GetSettlementPeriod() int {
-	rebateSettingMu.RLock()
-	defer rebateSettingMu.RUnlock()
-	return SettlementPeriod
+	return rebateSetting.SettlementPeriod
 }
 
 func GetRebateVisibleGroups() string {
-	rebateSettingMu.RLock()
-	defer rebateSettingMu.RUnlock()
-	return RebateVisibleGroups
+	return rebateSetting.VisibleGroups
 }
 
 func IsUserRebateVisible(userGroup string) bool {
-	rebateSettingMu.RLock()
-	groups := RebateVisibleGroups
-	rebateSettingMu.RUnlock()
-
+	groups := rebateSetting.VisibleGroups
 	if groups == "" {
 		return false
 	}
@@ -65,12 +56,6 @@ func IsUserRebateVisible(userGroup string) bool {
 	return false
 }
 
-func UpdateRebateSettings(enabled bool, period int, groups string) {
-	rebateSettingMu.Lock()
-	defer rebateSettingMu.Unlock()
-	RebateEnabled = enabled
-	if period >= 1 {
-		SettlementPeriod = period
-	}
-	RebateVisibleGroups = groups
+func GetRebateSetting() *RebateSetting {
+	return &rebateSetting
 }
