@@ -264,4 +264,7 @@ const (
 	TopUpStatusSuccess = "success"
 	TopUpStatusFailed  = "failed"
 	TopUpStatusExpired = "expired"
+
+	TopUpOrderTimeoutSeconds int64 = 900
+	MaxPendingTopUpOrders    int64 = 5
 )

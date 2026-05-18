@@ -240,6 +240,17 @@ func RequestEpay(c *gin.Context) {
 	}
 
 	id := c.GetInt("id")
+
+	pendingCount, err := model.CountPendingTopUpsByUserId(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "系统繁忙，请稍后重试"})
+		return
+	}
+	if pendingCount >= common.MaxPendingTopUpOrders {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "未支付订单数量已达上限"})
+		return
+	}
+
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "获取用户分组失败"})
@@ -260,7 +271,7 @@ func RequestEpay(c *gin.Context) {
 	returnUrl, _ := url.Parse(paymentReturnPath("/console/log"))
 	notifyUrl, _ := url.Parse(callBackAddress + "/api/user/epay/notify")
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
-	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)
+	tradeNo = fmt.Sprintf("TOPEPAY%dNO%s", id, tradeNo)
 	client := GetEpayClient()
 	if client == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "当前管理员未配置支付信息"})
@@ -303,7 +314,7 @@ func RequestEpay(c *gin.Context) {
 		return
 	}
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 充值订单创建成功 user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f uri=%q params=%q", id, tradeNo, req.PaymentMethod, req.Amount, payMoney, uri, common.GetJsonString(params)))
-	c.JSON(http.StatusOK, gin.H{"message": "success", "data": params, "url": uri})
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": params, "url": uri, "trade_no": tradeNo})
 }
 
 // tradeNo lock
@@ -549,4 +560,34 @@ func AdminCompleteTopUp(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+func GetTopUpStatus(c *gin.Context) {
+	tradeNo := c.Query("trade_no")
+	if tradeNo == "" {
+		common.ApiErrorMsg(c, "订单号不能为空")
+		return
+	}
+	userId := c.GetInt("id")
+	topUp := model.GetTopUpByTradeNoAndUserId(tradeNo, userId)
+	if topUp == nil {
+		common.ApiErrorMsg(c, "订单不存在")
+		return
+	}
+	status := topUp.Status
+	if status == common.TopUpStatusPending {
+		if common.GetTimestamp()-topUp.CreateTime > common.TopUpOrderTimeoutSeconds {
+			_ = model.ExpireTopUpOrder(tradeNo)
+			status = common.TopUpStatusExpired
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "success",
+		"data": gin.H{
+			"trade_no": topUp.TradeNo,
+			"status":   status,
+			"amount":   topUp.Amount,
+			"money":    topUp.Money,
+		},
+	})
 }

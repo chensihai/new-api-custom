@@ -148,6 +148,17 @@ func RequestWechatPay(c *gin.Context) {
 	}
 
 	id := c.GetInt("id")
+
+	pendingCount, err := model.CountPendingTopUpsByUserId(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "系统繁忙，请稍后重试"})
+		return
+	}
+	if pendingCount >= common.MaxPendingTopUpOrders {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "未支付订单数量已达上限"})
+		return
+	}
+
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "获取用户分组失败"})
@@ -162,7 +173,7 @@ func RequestWechatPay(c *gin.Context) {
 	callBackAddress := service.GetCallbackAddress()
 	notifyUrl := callBackAddress + "/api/wechat/notify"
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
-	tradeNo = fmt.Sprintf("WX%dNO%s", id, tradeNo)
+	tradeNo = fmt.Sprintf("TOPWX%dNO%s", id, tradeNo)
 
 	dPayMoney := decimal.NewFromFloat(payMoney).Mul(decimal.NewFromInt(100))
 	amountInFen := dPayMoney.IntPart()
@@ -216,7 +227,7 @@ func RequestWechatPay(c *gin.Context) {
 		}
 
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 Native 充值订单创建成功 user_id=%d trade_no=%s amount=%d money=%.2f", id, tradeNo, req.Amount, payMoney))
-		c.JSON(http.StatusOK, gin.H{"message": "success", "type": "native", "code_url": codeUrl})
+		c.JSON(http.StatusOK, gin.H{"message": "success", "type": "native", "code_url": codeUrl, "trade_no": tradeNo})
 	} else {
 		returnUrl := system_setting.ServerAddress + "/console/log"
 		svc := &h5.H5ApiService{Client: client}
@@ -252,7 +263,7 @@ func RequestWechatPay(c *gin.Context) {
 		}
 
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 H5 充值订单创建成功 user_id=%d trade_no=%s amount=%d money=%.2f", id, tradeNo, req.Amount, payMoney))
-		c.JSON(http.StatusOK, gin.H{"message": "success", "type": "h5", "h5_url": h5Url})
+		c.JSON(http.StatusOK, gin.H{"message": "success", "type": "h5", "h5_url": h5Url, "trade_no": tradeNo})
 	}
 }
 

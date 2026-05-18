@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.0] - 2026-05-18
+
+### Added
+- **充值支付流程重构**：统一轮询弹窗模式，废弃PreCreate二维码模式
+  - 新增订单状态查询API：GET /api/user/topup/status（惰性超时检查）
+  - 新增订单限制：用户最多5个待支付订单（防刷单）
+  - 新增订单超时：15分钟未支付自动过期
+  - 支付宝改用alipay_page(PC)/alipay_wap(移动端)模式，废弃alipay_precreate
+  - 微信支付native模式改为内嵌二维码+轮询（废弃window.open跳转）
+  - 所有下单响应新增trade_no字段，供前端轮询
+  - 订单号前缀统一：TOPALI/TOPWX/TOPEPAY（订阅保持SUB）
+  - 前端web/default：新建PaymentPollingDialog + useOrderPolling hook
+  - 前端web/classic：新建PaymentPollingDialog（Semi UI Modal + 内联useOrderPolling）
+  - i18n翻译补全：6个新key × 14个locale文件
+
+### Changed
+- 支付宝PreCreate预下单模式正式废弃，改回Page/WAP Pay + 前端轮询
+- 充值确认弹窗关闭后自动弹出轮询弹窗，轮询成功自动刷新余额
+
 ## [v1.1.0] - 2026-05-18
 
 ### Added
@@ -15,10 +34,6 @@ All notable changes to this project will be documented in this file.
   - 异步返利触发（gopool.Go）+ 定时结算任务（5分钟轮询）
   - 前端web/default：返利概览卡片、划转弹窗、设置Section、用户编辑扩展
   - 前端web/classic：RebateCard、SettingsRebate、EditUserModal扩展
-- **支付宝PreCreate预下单**（alipay.trade.precreate）
-  - 替代TradePagePay（URL拼接）模式，真正在支付宝服务端创建交易
-  - 前端渲染二维码供用户扫码（qrcode.react），15分钟超时
-  - 修复沙箱环境下"二维码过期"问题
 - **支付宝/微信支付官方SDK集成**
   - smartwalle/alipay v3 集成
   - 充值回调（gopool.Go异步触发返利）

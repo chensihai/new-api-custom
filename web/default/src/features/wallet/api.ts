@@ -273,3 +273,8 @@ export async function requestWechatPayment(
   } as Record<string, unknown>)
   return res.data
 }
+
+export async function getTopUpStatus(tradeNo: string) {
+  const res = await api.get(`/api/user/topup/status?trade_no=${encodeURIComponent(tradeNo)}`)
+  return res.data as { message: string; data: { trade_no: string; status: string; amount: number; money: number } }
+}

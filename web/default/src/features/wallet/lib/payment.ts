@@ -113,7 +113,7 @@ function isMobileBrowser(): boolean {
  * Get Alipay payment method based on UA
  */
 export function getAlipayPaymentMethod(): string {
-  return 'alipay_precreate'
+  return isMobileBrowser() ? 'alipay_wap' : 'alipay_page'
 }
 
 /**

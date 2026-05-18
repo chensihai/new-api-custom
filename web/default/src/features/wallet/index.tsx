@@ -26,7 +26,7 @@ import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
-import { AlipayQrDialog } from './components/dialogs/alipay-qr-dialog'
+import { PaymentPollingDialog } from './components/dialogs/payment-polling-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RebateSummaryCard } from './components/rebate-summary-card'
 import { RebateTransferDialog } from './components/rebate-transfer-dialog'
@@ -97,8 +97,6 @@ export function Wallet(props: WalletProps) {
   }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
   const {
     amount: paymentAmount,
-    qrCode,
-    clearQrCode,
     calculating,
     processing,
     calculatePaymentAmount,
@@ -203,19 +201,40 @@ export function Wallet(props: WalletProps) {
     }
   }
 
+  const [pollingDialogOpen, setPollingDialogOpen] = useState(false)
+  const [currentTradeNo, setCurrentTradeNo] = useState<string | null>(null)
+  const [currentPaymentType, setCurrentPaymentType] = useState<string | undefined>()
+  const [currentQrCodeUrl, setCurrentQrCodeUrl] = useState<string | undefined>()
+
   // Handle payment confirmation
   const handlePaymentConfirm = async () => {
     if (!selectedPaymentMethod) return
 
     const isPancake = isWaffoPancakePayment(selectedPaymentMethod.type)
-    const success = isPancake
-      ? await processWaffoPancakePayment(topupAmount)
+    const result = isPancake
+      ? { success: await processWaffoPancakePayment(topupAmount) }
       : await processPayment(topupAmount, selectedPaymentMethod.type)
 
-    if (success) {
+    if (result && typeof result === 'object' && 'success' in result && result.success) {
       setConfirmDialogOpen(false)
-      await fetchUser()
+      const tradeNo = (result as { tradeNo?: string }).tradeNo
+      const paymentType = (result as { paymentType?: string }).paymentType
+      const qrCodeUrl = (result as { qrCodeUrl?: string }).qrCodeUrl
+      if (tradeNo) {
+        setCurrentTradeNo(tradeNo)
+        setCurrentPaymentType(paymentType)
+        setCurrentQrCodeUrl(qrCodeUrl)
+        setPollingDialogOpen(true)
+      } else {
+        await fetchUser()
+      }
     }
+  }
+
+  const handlePollingSuccess = async () => {
+    setPollingDialogOpen(false)
+    setCurrentTradeNo(null)
+    await fetchUser()
   }
 
   // Handle redemption
@@ -394,10 +413,13 @@ export function Wallet(props: WalletProps) {
         processing={creemProcessing}
       />
 
-      <AlipayQrDialog
-        open={!!qrCode}
-        onOpenChange={(open) => { if (!open) clearQrCode() }}
-        qrCode={qrCode}
+      <PaymentPollingDialog
+        open={pollingDialogOpen}
+        onOpenChange={setPollingDialogOpen}
+        tradeNo={currentTradeNo}
+        paymentType={currentPaymentType}
+        qrCodeUrl={currentQrCodeUrl}
+        onSuccess={handlePollingSuccess}
       />
 
       {rebateVisible && (

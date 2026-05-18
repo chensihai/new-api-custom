@@ -47,7 +47,6 @@ import {
 
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
-  const [qrCode, setQrCode] = useState<string | null>(null)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
@@ -140,24 +139,15 @@ export function usePayment() {
         // Handle Alipay payment
         if (isAlipay && response.data) {
           const data = response.data as unknown as {
-            type?: string
-            qr_code?: string
             url?: string
+            trade_no?: string
           }
-          if (data.type === 'qr_code' && data.qr_code) {
-            setQrCode(data.qr_code)
-            toast.info(i18next.t('Please scan QR code with Alipay to pay'))
-            return true
-          }
-          if (data.url) {
-            window.open(data.url, '_blank')
+          const tradeNo = data.trade_no || (response as unknown as { trade_no?: string }).trade_no
+          const payUrl = data.url || (typeof response.data === 'string' ? response.data : '')
+          if (payUrl) {
+            window.open(payUrl, '_blank')
             toast.success(i18next.t('Redirecting to payment page...'))
-            return true
-          }
-          if (typeof response.data === 'string') {
-            window.open(response.data, '_blank')
-            toast.success(i18next.t('Redirecting to payment page...'))
-            return true
+            return { success: true, tradeNo, paymentType: 'alipay' }
           }
         }
 
@@ -167,37 +157,39 @@ export function usePayment() {
             type?: string
             code_url?: string
             h5_url?: string
+            trade_no?: string
           }
+          const tradeNo = data.trade_no || (response as unknown as { trade_no?: string }).trade_no
           if (data.type === 'native' && data.code_url) {
             toast.info(i18next.t('Please scan QR code with WeChat to pay'))
-            window.open(data.code_url, '_blank')
-            return true
+            return { success: true, tradeNo, paymentType: 'wechat_native', qrCodeUrl: data.code_url }
           }
           if (data.type === 'h5' && data.h5_url) {
             window.location.href = data.h5_url
-            return true
+            return { success: true, tradeNo, paymentType: 'wechat_h5' }
           }
           if (typeof response.data === 'string') {
             window.open(response.data, '_blank')
             toast.success(i18next.t('Redirecting to payment page...'))
-            return true
+            return { success: true, tradeNo, paymentType: 'wechat' }
           }
         }
 
         // Handle non-Stripe payment (epay form)
         if (!isStripe && !isAlipay && !isWechat && response.data) {
           const url = (response as unknown as { url?: string }).url
+          const tradeNo = (response as unknown as { trade_no?: string }).trade_no
           if (url) {
             submitPaymentForm(url, response.data)
             toast.success(i18next.t('Redirecting to payment page...'))
-            return true
+            return { success: true, tradeNo, paymentType: 'epay' }
           }
         }
 
-        return false
+        return { success: false }
       } catch (_error) {
         toast.error(i18next.t('Payment request failed'))
-        return false
+        return { success: false }
       } finally {
         setProcessing(false)
       }
@@ -205,12 +197,8 @@ export function usePayment() {
     []
   )
 
-  const clearQrCode = useCallback(() => setQrCode(null), [])
-
   return {
     amount,
-    qrCode,
-    clearQrCode,
     calculating,
     processing,
     calculatePaymentAmount,

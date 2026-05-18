@@ -718,3 +718,41 @@ func RechargeWechat(tradeNo string, callerIp string) (err error) {
 
 	return nil
 }
+
+func GetTopUpByTradeNoAndUserId(tradeNo string, userId int) *TopUp {
+	var topUp TopUp
+	if err := DB.Where("trade_no = ? AND user_id = ?", tradeNo, userId).First(&topUp).Error; err != nil {
+		return nil
+	}
+	return &topUp
+}
+
+func CountPendingTopUpsByUserId(userId int) (int64, error) {
+	var count int64
+	err := DB.Model(&TopUp{}).Where("user_id = ? AND status = ?", userId, common.TopUpStatusPending).Count(&count).Error
+	return count, err
+}
+
+func ExpireTopUpOrder(tradeNo string) error {
+	if tradeNo == "" {
+		return errors.New("未提供订单号")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		topUp := &TopUp{}
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return nil
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return nil
+		}
+		topUp.Status = common.TopUpStatusExpired
+		topUp.CompleteTime = common.GetTimestamp()
+		return tx.Save(topUp).Error
+	})
+}

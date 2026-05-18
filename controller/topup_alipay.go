@@ -94,7 +94,7 @@ func RequestAlipayPay(c *gin.Context) {
 		return
 	}
 
-	if req.PaymentMethod != model.PaymentMethodAlipayPage && req.PaymentMethod != model.PaymentMethodAlipayWap && req.PaymentMethod != model.PaymentMethodAlipayPrecreate {
+	if req.PaymentMethod != model.PaymentMethodAlipayPage && req.PaymentMethod != model.PaymentMethodAlipayWap {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "支付方式不存在"})
 		return
 	}
@@ -105,6 +105,16 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	id := c.GetInt("id")
+
+	pendingCount, err := model.CountPendingTopUpsByUserId(id)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "系统繁忙，请稍后重试"})
+		return
+	}
+	if pendingCount >= common.MaxPendingTopUpOrders {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "未支付订单数量已达上限"})
+		return
+	}
 	group, err := model.GetUserGroup(id, true)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "获取用户分组失败"})
@@ -128,7 +138,7 @@ func RequestAlipayPay(c *gin.Context) {
 		notifyUrl = &url.URL{}
 	}
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
-	tradeNo = fmt.Sprintf("ALI%dNO%s", id, tradeNo)
+	tradeNo = fmt.Sprintf("TOPALI%dNO%s", id, tradeNo)
 
 	client := getAlipayClient()
 	if client == nil {
@@ -137,31 +147,9 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	var payUrlStr string
-	var qrCodeStr string
 	payMoneyStr := strconv.FormatFloat(payMoney, 'f', 2, 64)
 
-	if req.PaymentMethod == model.PaymentMethodAlipayPrecreate {
-		p := alipay.TradePreCreate{}
-		p.OutTradeNo = tradeNo
-		p.TotalAmount = payMoneyStr
-		p.Subject = fmt.Sprintf("TUC%d", req.Amount)
-		p.TimeoutExpress = "15m"
-		p.NotifyURL = notifyUrl.String()
-
-		res, err := client.TradePreCreate(c.Request.Context(), p)
-		if err != nil {
-			logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单失败 user_id=%d trade_no=%s error=%q", id, tradeNo, err.Error()))
-			c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
-			return
-		}
-		if !res.IsSuccess() {
-			logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单失败 user_id=%d trade_no=%s code=%s msg=%s sub_code=%s sub_msg=%s", id, tradeNo, res.Code, res.Msg, res.SubCode, res.SubMsg))
-			c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("下单失败: %s", res.SubMsg)})
-			return
-		}
-		qrCodeStr = res.QRCode
-		logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单成功 user_id=%d trade_no=%s qr_code=%s", id, tradeNo, qrCodeStr))
-	} else if req.PaymentMethod == model.PaymentMethodAlipayPage {
+	if req.PaymentMethod == model.PaymentMethodAlipayPage {
 		p := alipay.TradePagePay{}
 		p.OutTradeNo = tradeNo
 		p.TotalAmount = payMoneyStr
@@ -221,11 +209,7 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 充值订单创建成功 user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f", id, tradeNo, req.PaymentMethod, req.Amount, payMoney))
-	if qrCodeStr != "" {
-		c.JSON(http.StatusOK, gin.H{"message": "success", "data": qrCodeStr, "qr_code": qrCodeStr, "type": "qr_code"})
-	} else {
-		c.JSON(http.StatusOK, gin.H{"message": "success", "data": payUrlStr, "url": payUrlStr, "type": "url"})
-	}
+	c.JSON(http.StatusOK, gin.H{"message": "success", "data": payUrlStr, "url": payUrlStr, "trade_no": tradeNo})
 }
 
 func RequestAlipayAmount(c *gin.Context) {

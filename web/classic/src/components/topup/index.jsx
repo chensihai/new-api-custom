@@ -30,7 +30,6 @@ import {
   getQuotaPerUnit,
 } from '../../helpers';
 import { Modal, Toast } from '@douyinfe/semi-ui';
-import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
@@ -41,6 +40,7 @@ import RebateCard from './RebateCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
+import PaymentPollingDialog from './modals/PaymentPollingDialog';
 
 const TopUp = () => {
   const { t } = useTranslation();
@@ -82,11 +82,16 @@ const TopUp = () => {
     statusState?.status?.enable_alipay_topup || false,
   );
   const [alipayMinTopUp, setAlipayMinTopUp] = useState(1);
-  const [alipayQrCode, setAlipayQrCode] = useState(null);
   const [enableWechatTopUp, setEnableWechatTopUp] = useState(
     statusState?.status?.enable_wechat_topup || false,
   );
   const [wechatMinTopUp, setWechatMinTopUp] = useState(1);
+
+  // 轮询弹窗状态
+  const [pollingVisible, setPollingVisible] = useState(false);
+  const [pollingTradeNo, setPollingTradeNo] = useState(null);
+  const [pollingPaymentType, setPollingPaymentType] = useState(null);
+  const [pollingQrCodeUrl, setPollingQrCodeUrl] = useState(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -304,15 +309,16 @@ const TopUp = () => {
     try {
       let res;
       if (payWay === 'stripe') {
-        // Stripe 支付请求
         res = await API.post('/api/user/stripe/pay', {
           amount: parseInt(topUpCount),
           payment_method: 'stripe',
         });
       } else if (payWay === 'alipay') {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const alipayMethod = isMobile ? 'alipay_wap' : 'alipay_page';
         res = await API.post('/api/user/alipay/pay', {
           amount: parseInt(topUpCount),
-          payment_method: 'alipay_precreate',
+          payment_method: alipayMethod,
         });
       } else if (payWay === 'wechat_pay' || payWay === 'wxpay') {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -322,7 +328,6 @@ const TopUp = () => {
           payment_method: paymentMethod,
         });
       } else {
-        // 普通支付请求
         res = await API.post('/api/user/pay', {
           amount: parseInt(topUpCount),
           payment_method: payWay,
@@ -332,27 +337,47 @@ const TopUp = () => {
       if (res !== undefined) {
         const { message, data } = res.data;
         if (message === 'success') {
+          const tradeNo = res.data.trade_no || res.data.data?.trade_no;
+
           if (payWay === 'stripe') {
-            // Stripe 支付回调处理
             window.open(data.pay_link, '_blank');
+            if (tradeNo) {
+              setPollingTradeNo(tradeNo);
+              setPollingPaymentType('stripe');
+              setPollingQrCodeUrl(null);
+              setPollingVisible(true);
+            }
           } else if (payWay === 'alipay') {
-            if (res.data.type === 'qr_code' && res.data.qr_code) {
-              setAlipayQrCode(res.data.qr_code);
-              showInfo(t('请使用支付宝扫描二维码完成支付'));
-            } else if (typeof data === 'string') {
-              window.open(data, '_blank');
+            const payUrl = data?.url || (typeof data === 'string' ? data : '');
+            if (payUrl) {
+              window.open(payUrl, '_blank');
+              showInfo(t('Redirecting to payment page...'));
+            }
+            if (tradeNo) {
+              setPollingTradeNo(tradeNo);
+              setPollingPaymentType('alipay');
+              setPollingQrCodeUrl(null);
+              setPollingVisible(true);
             }
           } else if (payWay === 'wechat_pay' || payWay === 'wxpay') {
-            // 微信支付：Native扫码或H5跳转
             if (res.data.type === 'native' && res.data.code_url) {
-              showInfo(t('请使用微信扫描二维码完成支付'));
-              // 显示二维码URL，前端可集成qrcode.react生成二维码
-              window.open(res.data.code_url, '_blank');
+              showInfo(t('Please scan QR code with WeChat to pay'));
+              if (tradeNo) {
+                setPollingTradeNo(tradeNo);
+                setPollingPaymentType('wechat_native');
+                setPollingQrCodeUrl(res.data.code_url);
+                setPollingVisible(true);
+              }
             } else if (res.data.type === 'h5' && res.data.h5_url) {
               window.location.href = res.data.h5_url;
+              if (tradeNo) {
+                setPollingTradeNo(tradeNo);
+                setPollingPaymentType('wechat_h5');
+                setPollingQrCodeUrl(null);
+                setPollingVisible(true);
+              }
             }
           } else {
-            // 普通支付表单提交
             let params = data;
             let url = res.data.url;
             let form = document.createElement('form');
@@ -374,6 +399,12 @@ const TopUp = () => {
             document.body.appendChild(form);
             form.submit();
             document.body.removeChild(form);
+            if (tradeNo) {
+              setPollingTradeNo(tradeNo);
+              setPollingPaymentType('epay');
+              setPollingQrCodeUrl(null);
+              setPollingVisible(true);
+            }
           }
         } else {
           const errorMsg =
@@ -1123,22 +1154,17 @@ const TopUp = () => {
           t={t}
           renderQuota={renderQuota}
         />
-        <Modal
-          title={t('支付宝二维码')}
-          visible={!!alipayQrCode}
-          onCancel={() => setAlipayQrCode(null)}
-          footer={null}
-          centered
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '16px 0' }}>
-            {alipayQrCode && (
-              <div style={{ background: '#fff', padding: 16, borderRadius: 8, border: '1px solid #e0e0e0' }}>
-                <QRCodeSVG value={alipayQrCode} size={256} level="M" />
-              </div>
-            )}
-            <p style={{ color: '#888', fontSize: 14 }}>{t('二维码将在15分钟后过期')}</p>
-          </div>
-        </Modal>
+        <PaymentPollingDialog
+          visible={pollingVisible}
+          onClose={() => setPollingVisible(false)}
+          tradeNo={pollingTradeNo}
+          paymentType={pollingPaymentType}
+          qrCodeUrl={pollingQrCodeUrl}
+          onSuccess={() => {
+            getUserQuota();
+            showSuccess(t('充值成功'));
+          }}
+        />
       </div>
     </div>
   );
