@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import { useOrderPolling } from '../hooks/use-order-polling'
+import { useOrderPolling } from '../../hooks/use-order-polling'
 
 interface PaymentPollingDialogProps {
   open: boolean
