@@ -4,7 +4,7 @@ import { getTopUpStatus } from '../api'
 export function useOrderPolling(
   tradeNo: string | null,
   intervalMs = 2000,
-  maxPolls = 30
+  maxPolls = 120
 ) {
   const [status, setStatus] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)

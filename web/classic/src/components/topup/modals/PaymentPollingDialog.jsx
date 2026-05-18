@@ -4,7 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { API } from '../../../helpers';
 
-const useOrderPolling = (tradeNo, intervalMs = 2000, maxPolls = 30) => {
+const useOrderPolling = (tradeNo, intervalMs = 2000, maxPolls = 120) => {
   const [status, setStatus] = useState(null);
   const [polling, setPolling] = useState(false);
 

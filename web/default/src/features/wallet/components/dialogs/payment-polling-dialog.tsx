@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -36,11 +37,12 @@ export function PaymentPollingDialog({
     onOpenChange(false)
   }
 
-  if (status === 'success') {
-    onSuccess()
-    onOpenChange(false)
-    return null
-  }
+  useEffect(() => {
+    if (status === 'success') {
+      onSuccess()
+      onOpenChange(false)
+    }
+  }, [status, onSuccess, onOpenChange])
 
   const isWechatNative = paymentType === 'wechat_native'
 
