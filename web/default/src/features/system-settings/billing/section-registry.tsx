@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { parseCurrencyDisplayType } from '@/lib/currency'
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
+import { RebateSettingsSection } from '../general/rebate-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
@@ -191,6 +192,23 @@ const BILLING_SECTIONS = [
           WaffoPancakeUnitPrice: settings.WaffoPancakeUnitPrice ?? 1,
           WaffoPancakeMinTopUp: settings.WaffoPancakeMinTopUp ?? 1,
         }}
+        alipayDefaultValues={{
+          AlipayEnabled: settings.AlipayEnabled ?? false,
+          AlipaySandbox: settings.AlipaySandbox ?? false,
+          AlipayAppId: settings.AlipayAppId ?? '',
+          AlipayPrivateKey: settings.AlipayPrivateKey ?? '',
+          AlipayPublicKey: settings.AlipayPublicKey ?? '',
+          AlipayMinTopUp: settings.AlipayMinTopUp ?? 1,
+        }}
+        wechatDefaultValues={{
+          WechatPayEnabled: settings.WechatPayEnabled ?? false,
+          WechatPayMchID: settings.WechatPayMchID ?? '',
+          WechatPaySerialNo: settings.WechatPaySerialNo ?? '',
+          WechatPayAPIv3Key: settings.WechatPayAPIv3Key ?? '',
+          WechatPayPrivateKey: settings.WechatPayPrivateKey ?? '',
+          WechatPayMinTopUp: settings.WechatPayMinTopUp ?? 1,
+        }}
+        serverAddress={settings.ServerAddress ?? ''}
         complianceDefaults={{
           confirmed: settings['payment_setting.compliance_confirmed'] ?? false,
           termsVersion:
@@ -211,6 +229,20 @@ const BILLING_SECTIONS = [
           enabled: settings['checkin_setting.enabled'],
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'rebate',
+    titleKey: 'Rebate Settings',
+    descriptionKey: 'Configure rebate settings for invitation rewards',
+    build: (settings: BillingSettings) => (
+      <RebateSettingsSection
+        defaultValues={{
+          enabled: settings['rebate_setting.enabled'],
+          settlementPeriod: settings['rebate_setting.settlement_period'],
+          visibleGroups: settings['rebate_setting.visible_groups'],
         }}
       />
     ),

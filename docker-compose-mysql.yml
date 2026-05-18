@@ -12,17 +12,23 @@
 
 services:
   new-api:
-    image: new-api:latest
+    image: new-api-custom:latest
     container_name: new-api-mysql
     restart: always
+    command: --log-dir /app/logs
     ports:
       - "3000:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
     environment:
       - SQL_DSN=root:${MYSQL_ROOT_PASSWORD:-123456}@tcp(mysql:3306)/new-api?charset=utf8mb4&parseTime=True&loc=Local
       - REDIS_CONN_STRING=redis://:${REDIS_PASSWORD:-123456}@redis:6379
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
       - TZ=Asia/Shanghai
-      - PHONE_AUTH_ENABLED=${PHONE_AUTH_ENABLED:-false}
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=true
+      - NODE_NAME=new-api-node-1
     depends_on:
       mysql:
         condition: service_healthy

@@ -12,7 +12,7 @@
 
 services:
   new-api:
-    image: new-api:latest
+    image: new-api-custom:latest
     container_name: new-api
     restart: always
     command: --log-dir /app/logs

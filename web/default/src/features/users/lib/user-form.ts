@@ -33,6 +33,8 @@ export const userFormSchema = z.object({
   quota_dollars: z.number().min(0).optional(),
   group: z.string().optional(),
   remark: z.string().optional(),
+  rebate_rate_percent: z.number().min(0).max(100).optional(),
+  rebate_cap_dollars: z.number().min(0).optional(),
 })
 
 export type UserFormValues = z.infer<typeof userFormSchema>
@@ -45,10 +47,12 @@ export const USER_FORM_DEFAULT_VALUES: UserFormValues = {
   username: '',
   display_name: '',
   password: '',
-  role: 1, // Default to common user
+  role: 1,
   quota_dollars: 0,
   group: DEFAULT_GROUP,
   remark: '',
+  rebate_rate_percent: 0,
+  rebate_cap_dollars: 0,
 }
 
 // ============================================================================
@@ -68,13 +72,13 @@ export function transformFormDataToPayload(
     password: data.password || undefined,
   }
 
-  // For create: only send required fields
   if (userId === undefined) {
-    payload.role = data.role || 1 // Default to common user
+    payload.role = data.role || 1
   } else {
-    // For update: quota is adjusted atomically via /api/user/manage, not sent here
     payload.group = data.group
     payload.remark = data.remark || undefined
+    payload.rebate_rate = Math.round((data.rebate_rate_percent ?? 0) * 100)
+    payload.rebate_cap = parseQuotaFromDollars(data.rebate_cap_dollars ?? 0)
     payload.id = userId
   }
 
@@ -93,5 +97,7 @@ export function transformUserToFormDefaults(user: User): UserFormValues {
     quota_dollars: quotaUnitsToDollars(user.quota),
     group: user.group || DEFAULT_GROUP,
     remark: user.remark || '',
+    rebate_rate_percent: (user.rebate_rate ?? 0) / 100,
+    rebate_cap_dollars: quotaUnitsToDollars(user.rebate_cap ?? 0),
   }
 }

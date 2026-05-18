@@ -42,8 +42,11 @@ import {
   paySubscriptionStripe,
   paySubscriptionCreem,
   paySubscriptionEpay,
+  paySubscriptionAlipay,
+  paySubscriptionWechat,
 } from '../../api'
 import { formatDuration, formatResetPeriod } from '../../lib'
+import { getAlipayPaymentMethod, getWechatPaymentMethod } from '@/features/wallet/lib/payment'
 import type { PlanRecord } from '../../types'
 
 interface PaymentMethod {
@@ -58,6 +61,8 @@ interface Props {
   enableStripe?: boolean
   enableCreem?: boolean
   enableOnlineTopUp?: boolean
+  enableAlipayTopUp?: boolean
+  enableWechatTopUp?: boolean
   epayMethods?: PaymentMethod[]
   purchaseLimit?: number
   purchaseCount?: number
@@ -83,7 +88,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const hasCreem = props.enableCreem && !!plan.creem_product_id
   const hasEpay =
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
-  const hasAnyPayment = hasStripe || hasCreem || hasEpay
+  const hasAlipay = props.enableAlipayTopUp
+  const hasWechat = props.enableWechatTopUp
+  const hasAnyPayment = hasStripe || hasCreem || hasEpay || hasAlipay || hasWechat
   const selectedEpayMethodLabel =
     (props.epayMethods || []).find((m) => m.type === selectedEpayMethod)
       ?.name ||
@@ -320,6 +327,85 @@ export function SubscriptionPurchaseDialog(props: Props) {
                   >
                     {t('Pay')}
                   </Button>
+                </div>
+              )}
+              {(hasAlipay || hasWechat) && (
+                <div className='grid grid-cols-2 gap-2 sm:flex'>
+                  {hasAlipay && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      disabled={paying || limitReached}
+                      onClick={async () => {
+                        setPaying(true)
+                        try {
+                          const paymentMethod = getAlipayPaymentMethod()
+                          const res = await paySubscriptionAlipay({
+                            plan_id: plan.id,
+                            payment_method: paymentMethod,
+                          })
+                          if (res.message === 'success' && res.url) {
+                            window.open(res.url, '_blank')
+                            toast.success(t('Payment page opened'))
+                            props.onOpenChange(false)
+                          } else {
+                            toast.error(
+                              res.message && res.message !== 'success'
+                                ? res.message
+                                : t('Payment request failed')
+                            )
+                          }
+                        } catch {
+                          toast.error(t('Payment request failed'))
+                        } finally {
+                          setPaying(false)
+                        }
+                      }}
+                    >
+                      {t('Alipay')}
+                    </Button>
+                  )}
+                  {hasWechat && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      disabled={paying || limitReached}
+                      onClick={async () => {
+                        setPaying(true)
+                        try {
+                          const paymentMethod = getWechatPaymentMethod()
+                          const res = await paySubscriptionWechat({
+                            plan_id: plan.id,
+                            payment_method: paymentMethod,
+                          })
+                          if (res.message === 'success') {
+                            if (res.data?.code_url) {
+                              window.open(res.data.code_url, '_blank')
+                              toast.success(t('QR code page opened'))
+                            } else if (res.data?.h5_url) {
+                              window.open(res.data.h5_url, '_blank')
+                              toast.success(t('Payment page opened'))
+                            } else {
+                              toast.error(t('Payment request failed'))
+                            }
+                            props.onOpenChange(false)
+                          } else {
+                            toast.error(
+                              res.message && res.message !== 'success'
+                                ? res.message
+                                : t('Payment request failed')
+                            )
+                          }
+                        } catch {
+                          toast.error(t('Payment request failed'))
+                        } finally {
+                          setPaying(false)
+                        }
+                      }}
+                    >
+                      {t('WeChat Pay')}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

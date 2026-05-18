@@ -23,13 +23,21 @@ import {
   calculateAmount,
   calculateStripeAmount,
   calculateWaffoPancakeAmount,
+  calculateAlipayAmount,
+  calculateWechatAmount,
   requestPayment,
   requestStripePayment,
+  requestAlipayPayment,
+  requestWechatPayment,
   isApiSuccess,
 } from '../api'
 import {
   isStripePayment,
   isWaffoPancakePayment,
+  isAlipayPayment,
+  isWechatPayment,
+  getAlipayPaymentMethod,
+  getWechatPaymentMethod,
   submitPaymentForm,
 } from '../lib'
 
@@ -39,6 +47,7 @@ import {
 
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
+  const [qrCode, setQrCode] = useState<string | null>(null)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
 
@@ -50,11 +59,17 @@ export function usePayment() {
 
         const isStripe = isStripePayment(paymentType)
         const isPancake = isWaffoPancakePayment(paymentType)
+        const isAlipay = isAlipayPayment(paymentType)
+        const isWechat = isWechatPayment(paymentType)
         const response = isStripe
           ? await calculateStripeAmount({ amount: topupAmount })
           : isPancake
             ? await calculateWaffoPancakeAmount({ amount: topupAmount })
-            : await calculateAmount({ amount: topupAmount })
+            : isAlipay
+              ? await calculateAlipayAmount({ amount: topupAmount })
+              : isWechat
+                ? await calculateWechatAmount({ amount: topupAmount })
+                : await calculateAmount({ amount: topupAmount })
 
         if (isApiSuccess(response) && response.data) {
           const calculatedAmount = parseFloat(response.data)
@@ -82,17 +97,33 @@ export function usePayment() {
         setProcessing(true)
 
         const isStripe = isStripePayment(paymentType)
+        const isAlipay = isAlipayPayment(paymentType)
+        const isWechat = isWechatPayment(paymentType)
         const amount = Math.floor(topupAmount)
 
-        const response = isStripe
-          ? await requestStripePayment({
-              amount,
-              payment_method: 'stripe',
-            })
-          : await requestPayment({
-              amount,
-              payment_method: paymentType,
-            })
+        let response
+
+        if (isStripe) {
+          response = await requestStripePayment({
+            amount,
+            payment_method: 'stripe',
+          })
+        } else if (isAlipay) {
+          response = await requestAlipayPayment({
+            amount,
+            payment_method: getAlipayPaymentMethod(),
+          })
+        } else if (isWechat) {
+          response = await requestWechatPayment({
+            amount,
+            payment_method: getWechatPaymentMethod(),
+          })
+        } else {
+          response = await requestPayment({
+            amount,
+            payment_method: paymentType,
+          })
+        }
 
         if (!isApiSuccess(response)) {
           toast.error(response.message || i18next.t('Payment request failed'))
@@ -106,8 +137,55 @@ export function usePayment() {
           return true
         }
 
-        // Handle non-Stripe payment
-        if (!isStripe && response.data) {
+        // Handle Alipay payment
+        if (isAlipay && response.data) {
+          const data = response.data as unknown as {
+            type?: string
+            qr_code?: string
+            url?: string
+          }
+          if (data.type === 'qr_code' && data.qr_code) {
+            setQrCode(data.qr_code)
+            toast.info(i18next.t('Please scan QR code with Alipay to pay'))
+            return true
+          }
+          if (data.url) {
+            window.open(data.url, '_blank')
+            toast.success(i18next.t('Redirecting to payment page...'))
+            return true
+          }
+          if (typeof response.data === 'string') {
+            window.open(response.data, '_blank')
+            toast.success(i18next.t('Redirecting to payment page...'))
+            return true
+          }
+        }
+
+        // Handle WeChat Pay payment
+        if (isWechat && response.data) {
+          const data = response.data as unknown as {
+            type?: string
+            code_url?: string
+            h5_url?: string
+          }
+          if (data.type === 'native' && data.code_url) {
+            toast.info(i18next.t('Please scan QR code with WeChat to pay'))
+            window.open(data.code_url, '_blank')
+            return true
+          }
+          if (data.type === 'h5' && data.h5_url) {
+            window.location.href = data.h5_url
+            return true
+          }
+          if (typeof response.data === 'string') {
+            window.open(response.data, '_blank')
+            toast.success(i18next.t('Redirecting to payment page...'))
+            return true
+          }
+        }
+
+        // Handle non-Stripe payment (epay form)
+        if (!isStripe && !isAlipay && !isWechat && response.data) {
           const url = (response as unknown as { url?: string }).url
           if (url) {
             submitPaymentForm(url, response.data)
@@ -127,8 +205,12 @@ export function usePayment() {
     []
   )
 
+  const clearQrCode = useCallback(() => setQrCode(null), [])
+
   return {
     amount,
+    qrCode,
+    clearQrCode,
     calculating,
     processing,
     calculatePaymentAmount,

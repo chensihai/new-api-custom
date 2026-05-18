@@ -29,8 +29,9 @@ const (
 	PaymentMethodCreem        = "creem"
 	PaymentMethodWaffo        = "waffo"
 	PaymentMethodWaffoPancake = "waffo_pancake"
-	PaymentMethodAlipayPage   = "alipay_page"
-	PaymentMethodAlipayWap    = "alipay_wap"
+	PaymentMethodAlipayPage       = "alipay_page"
+	PaymentMethodAlipayWap        = "alipay_wap"
+	PaymentMethodAlipayPrecreate  = "alipay_precreate"
 	PaymentMethodWechatNative = "wechat_native"
 	PaymentMethodWechatH5     = "wechat_h5"
 )

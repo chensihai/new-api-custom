@@ -326,7 +326,7 @@ const RechargeCard = ({
                             const isWaffoPancake =
                               payMethod.type === 'waffo_pancake';
                             const isAlipay = payMethod.type === 'alipay';
-                            const isWechatPay = payMethod.type === 'wechat_pay';
+                            const isWechatPay = payMethod.type === 'wxpay' || payMethod.type === 'wechat_pay';
                             const disabled =
                               (!enableOnlineTopUp &&
                                 !isStripe &&
@@ -354,7 +354,7 @@ const RechargeCard = ({
                                 icon={
                                   payMethod.type === 'alipay' ? (
                                     <SiAlipay size={18} color='#1677FF' />
-                                  ) : payMethod.type === 'wxpay' ? (
+                                  ) : (payMethod.type === 'wxpay' || payMethod.type === 'wechat_pay') ? (
                                     <SiWechat size={18} color='#07C160' />
                                   ) : payMethod.type === 'stripe' ? (
                                     <SiStripe size={18} color='#635BFF' />
@@ -688,6 +688,8 @@ const RechargeCard = ({
                 enableOnlineTopUp={enableOnlineTopUp}
                 enableStripeTopUp={enableStripeTopUp}
                 enableCreemTopUp={enableCreemTopUp}
+                enableAlipayTopUp={enableAlipayTopUp}
+                enableWechatTopUp={enableWechatTopUp}
                 billingPreference={billingPreference}
                 onChangeBillingPreference={onChangeBillingPreference}
                 activeSubscriptions={activeSubscriptions}

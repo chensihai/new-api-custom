@@ -57,6 +57,8 @@ export const userSchema = z.object({
   last_login_at: z.number().optional(),
   DeletedAt: z.any().nullable().optional(),
   remark: z.string().optional(),
+  rebate_rate: z.number().optional(),
+  rebate_cap: z.number().optional(),
 })
 export type User = z.infer<typeof userSchema>
 
@@ -100,10 +102,12 @@ export interface UserFormData {
   username: string
   display_name: string
   password?: string
-  role?: number // Only used when creating user
-  quota?: number // Only used when updating user
-  group?: string // Only used when updating user
-  remark?: string // Only used when updating user
+  role?: number
+  quota?: number
+  group?: string
+  remark?: string
+  rebate_rate?: number
+  rebate_cap?: number
 }
 
 export type ManageUserAction =

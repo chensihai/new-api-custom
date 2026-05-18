@@ -52,10 +52,14 @@ const SubscriptionPurchaseModal = ({
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
   enableCreemTopUp = false,
+  enableAlipayTopUp = false,
+  enableWechatTopUp = false,
   purchaseLimitInfo = null,
   onPayStripe,
   onPayCreem,
   onPayEpay,
+  onPayAlipay,
+  onPayWechat,
 }) => {
   const plan = selectedPlan?.plan;
   const totalAmount = Number(plan?.total_amount || 0);
@@ -69,7 +73,9 @@ const SubscriptionPurchaseModal = ({
   const hasStripe = enableStripeTopUp && !!plan?.stripe_price_id;
   const hasCreem = enableCreemTopUp && !!plan?.creem_product_id;
   const hasEpay = enableOnlineTopUp && epayMethods.length > 0;
-  const hasAnyPayment = hasStripe || hasCreem || hasEpay;
+  const hasAlipay = enableAlipayTopUp;
+  const hasWechat = enableWechatTopUp;
+  const hasAnyPayment = hasStripe || hasCreem || hasEpay || hasAlipay || hasWechat;
   const purchaseLimit = Number(purchaseLimitInfo?.limit || 0);
   const purchaseCount = Number(purchaseLimitInfo?.count || 0);
   const purchaseLimitReached =
@@ -239,6 +245,34 @@ const SubscriptionPurchaseModal = ({
                   >
                     {t('支付')}
                   </Button>
+                </div>
+              )}
+
+              {/* 支付宝 / 微信支付 */}
+              {(hasAlipay || hasWechat) && (
+                <div className='flex gap-2'>
+                  {hasAlipay && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      onClick={onPayAlipay}
+                      loading={paying}
+                      disabled={purchaseLimitReached}
+                    >
+                      {t('支付宝')}
+                    </Button>
+                  )}
+                  {hasWechat && (
+                    <Button
+                      theme='light'
+                      className='flex-1'
+                      onClick={onPayWechat}
+                      loading={paying}
+                      disabled={purchaseLimitReached}
+                    >
+                      {t('微信支付')}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

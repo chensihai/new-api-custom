@@ -87,6 +87,43 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
 }
 
 /**
+ * Check if payment method is Alipay
+ */
+export function isAlipayPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.ALIPAY
+}
+
+/**
+ * Check if payment method is WeChat Pay
+ */
+export function isWechatPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.WECHAT
+}
+
+/**
+ * Detect mobile browser via User-Agent
+ */
+function isMobileBrowser(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  )
+}
+
+/**
+ * Get Alipay payment method based on UA
+ */
+export function getAlipayPaymentMethod(): string {
+  return 'alipay_precreate'
+}
+
+/**
+ * Get WeChat Pay payment method based on UA
+ */
+export function getWechatPaymentMethod(): string {
+  return isMobileBrowser() ? 'wechat_h5' : 'wechat_native'
+}
+
+/**
  * Get default payment type from topup info
  */
 export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
@@ -109,6 +146,14 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
 
   if (topupInfo.enable_waffo_pancake_topup) {
     return PAYMENT_TYPES.WAFFO_PANCAKE
+  }
+
+  if (topupInfo.enable_alipay_topup) {
+    return PAYMENT_TYPES.ALIPAY
+  }
+
+  if (topupInfo.enable_wechat_topup) {
+    return PAYMENT_TYPES.WECHAT
   }
 
   return DEFAULT_PAYMENT_TYPE
@@ -136,6 +181,14 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
 
   if (topupInfo.enable_waffo_pancake_topup) {
     return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
+  }
+
+  if (topupInfo.enable_alipay_topup) {
+    return topupInfo.alipay_min_topup || DEFAULT_MIN_TOPUP
+  }
+
+  if (topupInfo.enable_wechat_topup) {
+    return topupInfo.wechat_min_topup || DEFAULT_MIN_TOPUP
   }
 
   return DEFAULT_MIN_TOPUP

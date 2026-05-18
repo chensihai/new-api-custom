@@ -394,6 +394,66 @@ export function UsersMutateDrawer({
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name='rebate_rate_percent'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Rebate Rate')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            max={100}
+                            step={0.01}
+                            placeholder='0'
+                            value={field.value ?? 0}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === '' ? 0 : parseFloat(e.target.value)
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Rebate rate (percentage)')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='rebate_cap_dollars'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Rebate Cap')}</FormLabel>
+                        <div className='flex gap-2'>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              min={0}
+                              step={0.01}
+                              placeholder='0'
+                              value={field.value ?? 0}
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value === '' ? 0 : parseFloat(e.target.value)
+                                )
+                              }
+                              className='flex-1'
+                            />
+                          </FormControl>
+                        </div>
+                        <FormDescription>
+                          {t('Max rebate per invitee (0 = unlimited)')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               )}
 

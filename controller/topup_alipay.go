@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"github.com/smartwalle/alipay/v3"
@@ -93,7 +94,7 @@ func RequestAlipayPay(c *gin.Context) {
 		return
 	}
 
-	if req.PaymentMethod != model.PaymentMethodAlipayPage && req.PaymentMethod != model.PaymentMethodAlipayWap {
+	if req.PaymentMethod != model.PaymentMethodAlipayPage && req.PaymentMethod != model.PaymentMethodAlipayWap && req.PaymentMethod != model.PaymentMethodAlipayPrecreate {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "支付方式不存在"})
 		return
 	}
@@ -136,9 +137,31 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	var payUrlStr string
+	var qrCodeStr string
 	payMoneyStr := strconv.FormatFloat(payMoney, 'f', 2, 64)
 
-	if req.PaymentMethod == model.PaymentMethodAlipayPage {
+	if req.PaymentMethod == model.PaymentMethodAlipayPrecreate {
+		p := alipay.TradePreCreate{}
+		p.OutTradeNo = tradeNo
+		p.TotalAmount = payMoneyStr
+		p.Subject = fmt.Sprintf("TUC%d", req.Amount)
+		p.TimeoutExpress = "15m"
+		p.NotifyURL = notifyUrl.String()
+
+		res, err := client.TradePreCreate(c.Request.Context(), p)
+		if err != nil {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单失败 user_id=%d trade_no=%s error=%q", id, tradeNo, err.Error()))
+			c.JSON(http.StatusOK, gin.H{"message": "error", "data": "拉起支付失败"})
+			return
+		}
+		if !res.IsSuccess() {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单失败 user_id=%d trade_no=%s code=%s msg=%s sub_code=%s sub_msg=%s", id, tradeNo, res.Code, res.Msg, res.SubCode, res.SubMsg))
+			c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("下单失败: %s", res.SubMsg)})
+			return
+		}
+		qrCodeStr = res.QRCode
+		logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 PreCreate 下单成功 user_id=%d trade_no=%s qr_code=%s", id, tradeNo, qrCodeStr))
+	} else if req.PaymentMethod == model.PaymentMethodAlipayPage {
 		p := alipay.TradePagePay{}
 		p.OutTradeNo = tradeNo
 		p.TotalAmount = payMoneyStr
@@ -154,6 +177,7 @@ func RequestAlipayPay(c *gin.Context) {
 			return
 		}
 		payUrlStr = res.String()
+		logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 Page Pay URL user_id=%d pay_url=%s", id, payUrlStr))
 	} else {
 		p := alipay.TradeWapPay{}
 		p.OutTradeNo = tradeNo
@@ -170,6 +194,7 @@ func RequestAlipayPay(c *gin.Context) {
 			return
 		}
 		payUrlStr = res.String()
+		logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 WAP Pay URL user_id=%d pay_url=%s", id, payUrlStr))
 	}
 
 	amount := req.Amount
@@ -196,7 +221,11 @@ func RequestAlipayPay(c *gin.Context) {
 	}
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 充值订单创建成功 user_id=%d trade_no=%s payment_method=%s amount=%d money=%.2f", id, tradeNo, req.PaymentMethod, req.Amount, payMoney))
-	c.JSON(http.StatusOK, gin.H{"message": "success", "data": payUrlStr, "url": payUrlStr})
+	if qrCodeStr != "" {
+		c.JSON(http.StatusOK, gin.H{"message": "success", "data": qrCodeStr, "qr_code": qrCodeStr, "type": "qr_code"})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"message": "success", "data": payUrlStr, "url": payUrlStr, "type": "url"})
+	}
 }
 
 func RequestAlipayAmount(c *gin.Context) {
@@ -301,6 +330,11 @@ func AlipayNotify(c *gin.Context) {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 充值失败 trade_no=%s user_id=%d client_ip=%s error=%q", tradeNo, topUp.UserId, c.ClientIP(), err.Error()))
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
+	}
+
+	quotaToAdd := int(decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).IntPart())
+	if quotaToAdd > 0 && topUp.Id > 0 {
+		gopool.Go(func() { service.TriggerRebateOnRecharge(topUp.UserId, quotaToAdd, topUp.Id) })
 	}
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 充值成功 trade_no=%s user_id=%d client_ip=%s money=%.2f", tradeNo, topUp.UserId, c.ClientIP(), topUp.Money))

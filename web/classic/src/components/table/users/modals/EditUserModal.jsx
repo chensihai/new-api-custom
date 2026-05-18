@@ -94,6 +94,8 @@ const EditUserModal = (props) => {
     quota_amount: 0,
     group: 'default',
     remark: '',
+    rebate_rate_percent: 0,
+    rebate_cap_amount: 0,
   });
 
   const fetchGroups = async () => {
@@ -116,6 +118,10 @@ const EditUserModal = (props) => {
       data.password = '';
       data.quota_amount = Number(
         quotaToDisplayAmount(data.quota || 0).toFixed(6),
+      );
+      data.rebate_rate_percent = (data.rebate_rate || 0) / 100;
+      data.rebate_cap_amount = Number(
+        quotaToDisplayAmount(data.rebate_cap || 0).toFixed(6),
       );
       setInputs({ ...getInitValues(), ...data });
     } else {
@@ -150,6 +156,10 @@ const EditUserModal = (props) => {
     let payload = { ...values };
     delete payload.quota;
     delete payload.quota_amount;
+    delete payload.rebate_rate_percent;
+    delete payload.rebate_cap_amount;
+    payload.rebate_rate = Math.round((values.rebate_rate_percent || 0) * 100);
+    payload.rebate_cap = displayAmountToQuota(values.rebate_cap_amount || 0);
     if (userId) {
       payload.id = parseInt(userId);
     }
@@ -410,6 +420,32 @@ const EditUserModal = (props) => {
                             readonly
                           />
                         </div>
+                      </Col>
+
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='rebate_rate_percent'
+                          label={t('返利比例（%）')}
+                          placeholder='0'
+                          min={0}
+                          max={100}
+                          step={0.01}
+                          precision={2}
+                          style={{ width: '100%' }}
+                        />
+                      </Col>
+
+                      <Col span={12}>
+                        <Form.InputNumber
+                          field='rebate_cap_amount'
+                          label={t('返利上限')}
+                          prefix={getCurrencyConfig().symbol}
+                          placeholder='0'
+                          min={0}
+                          step={0.01}
+                          precision={6}
+                          style={{ width: '100%' }}
+                        />
                       </Col>
                     </Row>
                   </Card>

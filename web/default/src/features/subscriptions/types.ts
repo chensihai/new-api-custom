@@ -96,6 +96,8 @@ export interface SubscriptionPayResponse {
   data?: {
     pay_link?: string
     checkout_url?: string
+    code_url?: string
+    h5_url?: string
   }
   url?: string
 }

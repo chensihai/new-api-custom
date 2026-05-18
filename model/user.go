@@ -52,6 +52,12 @@ type User struct {
 	Setting          string         `json:"setting" gorm:"type:text;column:setting"`
 	Remark           string         `json:"remark,omitempty" gorm:"type:varchar(255)" validate:"max=255"`
 	StripeCustomer   string         `json:"stripe_customer" gorm:"type:varchar(64);column:stripe_customer;index"`
+	PhoneNumber      string         `json:"phone_number" gorm:"type:varchar(32);column:phone_number;index"`
+	PhoneAuthVerified bool          `json:"phone_auth_verified" gorm:"type:boolean;default:false;column:phone_auth_verified"`
+	PhoneAuthTime    *int64        `json:"phone_auth_time" gorm:"column:phone_auth_time"`
+	PhoneAuthProvider string       `json:"phone_auth_provider" gorm:"type:varchar(32);column:phone_auth_provider"`
+	RebateRate        int          `json:"rebate_rate" gorm:"type:int;default:0;column:rebate_rate"`
+	RebateCap         int          `json:"rebate_cap" gorm:"type:int;default:0;column:rebate_cap"`
 	CreatedAt        int64          `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	LastLoginAt      int64          `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 }
@@ -528,6 +534,8 @@ func (user *User) Edit(updatePassword bool) error {
 		"display_name": newUser.DisplayName,
 		"group":        newUser.Group,
 		"remark":       newUser.Remark,
+		"rebate_rate":  newUser.RebateRate,
+		"rebate_cap":   newUser.RebateCap,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password

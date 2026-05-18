@@ -60,6 +60,14 @@ import {
   removeTrailingSlash,
 } from './utils'
 import {
+  AlipaySettingsSection,
+  type AlipaySettingsValues,
+} from './alipay-settings-section'
+import {
+  WechatSettingsSection,
+  type WechatSettingsValues,
+} from './wechat-settings-section'
+import {
   WaffoPancakeSettingsSection,
   type WaffoPancakeSettingsValues,
 } from './waffo-pancake-settings-section'
@@ -149,6 +157,9 @@ type PaymentSettingsSectionProps = {
   defaultValues: PaymentFormValues
   waffoDefaultValues: WaffoSettingsValues
   waffoPancakeDefaultValues: WaffoPancakeSettingsValues
+  alipayDefaultValues: AlipaySettingsValues
+  wechatDefaultValues: WechatSettingsValues
+  serverAddress?: string
   complianceDefaults: PaymentComplianceDefaults
 }
 
@@ -156,6 +167,9 @@ export function PaymentSettingsSection({
   defaultValues,
   waffoDefaultValues,
   waffoPancakeDefaultValues,
+  alipayDefaultValues,
+  wechatDefaultValues,
+  serverAddress,
   complianceDefaults,
 }: PaymentSettingsSectionProps) {
   const { t } = useTranslation()
@@ -1473,6 +1487,20 @@ export function PaymentSettingsSection({
       <Separator />
 
       <WaffoPancakeSettingsSection defaultValues={waffoPancakeDefaultValues} />
+
+      <Separator />
+
+      <AlipaySettingsSection
+        defaultValues={alipayDefaultValues}
+        serverAddress={serverAddress}
+      />
+
+      <Separator />
+
+      <WechatSettingsSection
+        defaultValues={wechatDefaultValues}
+        serverAddress={serverAddress}
+      />
       {/* eslint-enable react-hooks/refs */}
     </SettingsSection>
   )

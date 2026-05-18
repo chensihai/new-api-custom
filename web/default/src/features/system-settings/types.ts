@@ -271,6 +271,9 @@ export type BillingSettings = {
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
+  'rebate_setting.enabled': boolean
+  'rebate_setting.settlement_period': number
+  'rebate_setting.visible_groups': string
 }
 
 export type OperationsSettings = {

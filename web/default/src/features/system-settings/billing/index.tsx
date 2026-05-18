@@ -111,6 +111,9 @@ const defaultBillingSettings: BillingSettings = {
   'checkin_setting.enabled': false,
   'checkin_setting.min_quota': 1000,
   'checkin_setting.max_quota': 10000,
+  'rebate_setting.enabled': false,
+  'rebate_setting.settlement_period': 7,
+  'rebate_setting.visible_groups': '',
 }
 
 export function BillingSettings() {

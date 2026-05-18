@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 	"github.com/wechatpay-apiv3/wechatpay-go/core"
@@ -379,6 +380,11 @@ func WechatNotify(c *gin.Context) {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付 充值失败 trade_no=%s user_id=%d client_ip=%s error=%q", tradeNo, topUp.UserId, c.ClientIP(), err.Error()))
 		c.JSON(http.StatusOK, gin.H{"code": "FAIL", "message": "recharge failed"})
 		return
+	}
+
+	quotaToAdd := int(decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).IntPart())
+	if quotaToAdd > 0 && topUp.Id > 0 {
+		gopool.Go(func() { service.TriggerRebateOnRecharge(topUp.UserId, quotaToAdd, topUp.Id) })
 	}
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 充值成功 trade_no=%s user_id=%d client_ip=%s money=%.2f", tradeNo, topUp.UserId, c.ClientIP(), topUp.Money))

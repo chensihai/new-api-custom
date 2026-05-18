@@ -26,7 +26,10 @@ import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
+import { AlipayQrDialog } from './components/dialogs/alipay-qr-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { RebateSummaryCard } from './components/rebate-summary-card'
+import { RebateTransferDialog } from './components/rebate-transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
@@ -45,6 +48,11 @@ import {
   getMinTopupAmount,
   isWaffoPancakePayment,
 } from './lib'
+import {
+  getRebateVisibility,
+  getRebateSummary,
+} from './api-rebate'
+import type { RebateSummary } from './api-rebate'
 import type {
   UserWalletData,
   PaymentMethod,
@@ -73,6 +81,9 @@ export function Wallet(props: WalletProps) {
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
+  const [rebateVisible, setRebateVisible] = useState(false)
+  const [rebateSummary, setRebateSummary] = useState<RebateSummary | null>(null)
+  const [rebateTransferOpen, setRebateTransferOpen] = useState(false)
 
   const { status } = useStatus()
   const { currency } = useSystemConfig()
@@ -86,6 +97,8 @@ export function Wallet(props: WalletProps) {
   }, [currency?.quotaDisplayType, currency?.usdExchangeRate])
   const {
     amount: paymentAmount,
+    qrCode,
+    clearQrCode,
     calculating,
     processing,
     calculatePaymentAmount,
@@ -122,6 +135,15 @@ export function Wallet(props: WalletProps) {
   useEffect(() => {
     fetchUser()
   }, [fetchUser])
+
+  useEffect(() => {
+    getRebateVisibility().then((res) => {
+      if (res.visible) {
+        setRebateVisible(true)
+        getRebateSummary().then(setRebateSummary)
+      }
+    })
+  }, [])
 
   useEffect(() => {
     if (props.initialShowHistory) {
@@ -306,6 +328,8 @@ export function Wallet(props: WalletProps) {
                   enableWaffoPancakeTopup={
                     topupInfo?.enable_waffo_pancake_topup
                   }
+                  enableAlipayTopup={topupInfo?.enable_alipay_topup}
+                  enableWechatTopup={topupInfo?.enable_wechat_topup}
                 />
               </div>
 
@@ -324,6 +348,14 @@ export function Wallet(props: WalletProps) {
               }
               loading={affiliateLoading}
             />
+
+            {rebateVisible && (
+              <RebateSummaryCard
+                summary={rebateSummary}
+                onTransfer={() => setRebateTransferOpen(true)}
+                loading={!rebateSummary}
+              />
+            )}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
@@ -361,6 +393,21 @@ export function Wallet(props: WalletProps) {
         product={selectedCreemProduct}
         processing={creemProcessing}
       />
+
+      <AlipayQrDialog
+        open={!!qrCode}
+        onOpenChange={(open) => { if (!open) clearQrCode() }}
+        qrCode={qrCode}
+      />
+
+      {rebateVisible && (
+        <RebateTransferDialog
+          open={rebateTransferOpen}
+          onOpenChange={setRebateTransferOpen}
+          maxQuota={rebateSummary?.settled_quota ?? 0}
+          onSuccess={() => getRebateSummary().then(setRebateSummary)}
+        />
+      )}
     </>
   )
 }

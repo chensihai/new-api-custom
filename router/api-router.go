@@ -140,6 +140,14 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
+				// Rebate routes
+				selfRoute.GET("/rebate/visibility", controller.GetRebateVisibility)
+				selfRoute.GET("/rebate/summary", controller.GetRebateSummary)
+				selfRoute.GET("/rebate/records", controller.GetRebateRecords)
+				selfRoute.GET("/rebate/deficits", controller.GetRebateDeficits)
+				selfRoute.GET("/rebate/invitee-progress", controller.GetRebateInviteeProgress)
+				selfRoute.POST("/rebate/transfer", controller.TransferRebate)
+
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
 				selfRoute.POST("/2fa/setup", controller.Setup2FA)
@@ -176,6 +184,14 @@ func SetApiRouter(router *gin.Engine) {
 				// Admin 2FA routes
 				adminRoute.GET("/2fa/stats", controller.Admin2FAStats)
 				adminRoute.DELETE("/:id/2fa", controller.AdminDisable2FA)
+
+				// Admin Rebate routes
+				adminRoute.GET("/rebate/settings", controller.GetRebateSettings)
+				adminRoute.PUT("/rebate/settings", controller.UpdateRebateSettings)
+				adminRoute.GET("/rebate/statistics", controller.GetRebateStatistics)
+				adminRoute.GET("/rebate/user/:id/summary", controller.AdminGetUserRebateSummary)
+				adminRoute.GET("/rebate/user/:id/records", controller.AdminGetUserRebateRecords)
+				adminRoute.GET("/rebate/user/:id/deficits", controller.AdminGetUserRebateDeficits)
 			}
 		}
 
@@ -189,6 +205,8 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionRoute.POST("/epay/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestEpay)
 			subscriptionRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestStripePay)
 			subscriptionRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestCreemPay)
+			subscriptionRoute.POST("/alipay/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestAlipayPay)
+			subscriptionRoute.POST("/wechat/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestWechatPay)
 		}
 		subscriptionAdminRoute := apiRouter.Group("/subscription/admin")
 		subscriptionAdminRoute.Use(middleware.AdminAuth())
@@ -211,6 +229,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
 		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
 		apiRouter.POST("/subscription/epay/return", controller.SubscriptionEpayReturn)
+		apiRouter.POST("/subscription/alipay/notify", controller.SubscriptionAlipayNotify)
+		apiRouter.POST("/subscription/wechat/notify", controller.SubscriptionWechatNotify)
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{

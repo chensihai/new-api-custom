@@ -76,6 +76,8 @@ const SubscriptionPlansCard = ({
   payMethods = [],
   enableOnlineTopUp = false,
   enableStripeTopUp = false,
+  enableAlipayTopUp = false,
+  enableWechatTopUp = false,
   enableCreemTopUp = false,
   billingPreference,
   onChangeBillingPreference,
@@ -183,6 +185,67 @@ const SubscriptionPlansCard = ({
       if (res.data?.message === 'success') {
         submitEpayForm({ url: res.data.url, params: res.data.data });
         showSuccess(t('已发起支付'));
+        closeBuy();
+      } else {
+        const errorMsg =
+          typeof res.data?.data === 'string'
+            ? res.data.data
+            : res.data?.message || t('支付失败');
+        showError(errorMsg);
+      }
+    } catch (e) {
+      showError(t('支付请求失败'));
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const payAlipay = async () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const paymentMethod = isMobile ? 'alipay_wap' : 'alipay_page';
+    setPaying(true);
+    try {
+      const res = await API.post('/api/subscription/alipay/pay', {
+        plan_id: selectedPlan.plan.id,
+        payment_method: paymentMethod,
+      });
+      if (res.data?.message === 'success' && res.data?.url) {
+        window.open(res.data.url, '_blank');
+        showSuccess(t('已打开支付页面'));
+        closeBuy();
+      } else {
+        const errorMsg =
+          typeof res.data?.data === 'string'
+            ? res.data.data
+            : res.data?.message || t('支付失败');
+        showError(errorMsg);
+      }
+    } catch (e) {
+      showError(t('支付请求失败'));
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const payWechat = async () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const paymentMethod = isMobile ? 'wechat_h5' : 'wechat_native';
+    setPaying(true);
+    try {
+      const res = await API.post('/api/subscription/wechat/pay', {
+        plan_id: selectedPlan.plan.id,
+        payment_method: paymentMethod,
+      });
+      if (res.data?.message === 'success') {
+        if (res.data?.data?.code_url) {
+          window.open(res.data.data.code_url, '_blank');
+          showSuccess(t('已打开二维码页面'));
+        } else if (res.data?.data?.h5_url) {
+          window.open(res.data.data.h5_url, '_blank');
+          showSuccess(t('已打开支付页面'));
+        } else {
+          showError(t('支付失败'));
+        }
         closeBuy();
       } else {
         const errorMsg =
@@ -673,6 +736,8 @@ const SubscriptionPlansCard = ({
         enableOnlineTopUp={enableOnlineTopUp}
         enableStripeTopUp={enableStripeTopUp}
         enableCreemTopUp={enableCreemTopUp}
+        enableAlipayTopUp={enableAlipayTopUp}
+        enableWechatTopUp={enableWechatTopUp}
         purchaseLimitInfo={
           selectedPlan?.plan?.id
             ? {
@@ -684,6 +749,8 @@ const SubscriptionPlansCard = ({
         onPayStripe={payStripe}
         onPayCreem={payCreem}
         onPayEpay={payEpay}
+        onPayAlipay={payAlipay}
+        onPayWechat={payWechat}
       />
     </>
   );

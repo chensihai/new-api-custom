@@ -30,12 +30,14 @@ import {
   getQuotaPerUnit,
 } from '../../helpers';
 import { Modal, Toast } from '@douyinfe/semi-ui';
+import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 
 import RechargeCard from './RechargeCard';
 import InvitationCard from './InvitationCard';
+import RebateCard from './RebateCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
@@ -80,6 +82,7 @@ const TopUp = () => {
     statusState?.status?.enable_alipay_topup || false,
   );
   const [alipayMinTopUp, setAlipayMinTopUp] = useState(1);
+  const [alipayQrCode, setAlipayQrCode] = useState(null);
   const [enableWechatTopUp, setEnableWechatTopUp] = useState(
     statusState?.status?.enable_wechat_topup || false,
   );
@@ -150,7 +153,7 @@ const TopUp = () => {
     if (payment === 'alipay') {
       return getAlipayAmount(value);
     }
-    if (payment === 'wechat_pay') {
+    if (payment === 'wechat_pay' || payment === 'wxpay') {
       return getWechatAmount(value);
     }
     if (payment === 'waffo_pancake') {
@@ -227,7 +230,7 @@ const TopUp = () => {
         showError(t('管理员未开启支付宝充值！'));
         return;
       }
-    } else if (payment === 'wechat_pay') {
+    } else if (payment === 'wechat_pay' || payment === 'wxpay') {
       if (!enableWechatTopUp) {
         showError(t('管理员未开启微信支付充值！'));
         return;
@@ -307,13 +310,11 @@ const TopUp = () => {
           payment_method: 'stripe',
         });
       } else if (payWay === 'alipay') {
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const paymentMethod = isMobile ? 'alipay_wap' : 'alipay_page';
         res = await API.post('/api/user/alipay/pay', {
           amount: parseInt(topUpCount),
-          payment_method: paymentMethod,
+          payment_method: 'alipay_precreate',
         });
-      } else if (payWay === 'wechat_pay') {
+      } else if (payWay === 'wechat_pay' || payWay === 'wxpay') {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const paymentMethod = isMobile ? 'wechat_h5' : 'wechat_native';
         res = await API.post('/api/user/wechat/pay', {
@@ -335,9 +336,13 @@ const TopUp = () => {
             // Stripe 支付回调处理
             window.open(data.pay_link, '_blank');
           } else if (payWay === 'alipay') {
-            // 支付宝支付：跳转收银台
-            window.open(data, '_blank');
-          } else if (payWay === 'wechat_pay') {
+            if (res.data.type === 'qr_code' && res.data.qr_code) {
+              setAlipayQrCode(res.data.qr_code);
+              showInfo(t('请使用支付宝扫描二维码完成支付'));
+            } else if (typeof data === 'string') {
+              window.open(data, '_blank');
+            }
+          } else if (payWay === 'wechat_pay' || payWay === 'wxpay') {
             // 微信支付：Native扫码或H5跳转
             if (res.data.type === 'native' && res.data.code_url) {
               showInfo(t('请使用微信扫描二维码完成支付'));
@@ -1114,6 +1119,26 @@ const TopUp = () => {
           handleAffLinkClick={handleAffLinkClick}
           complianceConfirmed={topupInfo.payment_compliance_confirmed !== false}
         />
+        <RebateCard
+          t={t}
+          renderQuota={renderQuota}
+        />
+        <Modal
+          title={t('支付宝二维码')}
+          visible={!!alipayQrCode}
+          onCancel={() => setAlipayQrCode(null)}
+          footer={null}
+          centered
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '16px 0' }}>
+            {alipayQrCode && (
+              <div style={{ background: '#fff', padding: 16, borderRadius: 8, border: '1px solid #e0e0e0' }}>
+                <QRCodeSVG value={alipayQrCode} size={256} level="M" />
+              </div>
+            )}
+            <p style={{ color: '#888', fontSize: 14 }}>{t('二维码将在15分钟后过期')}</p>
+          </div>
+        </Modal>
       </div>
     </div>
   );

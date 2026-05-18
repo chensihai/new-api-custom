@@ -132,6 +132,20 @@ export async function paySubscriptionEpay(
   }
 }
 
+export async function paySubscriptionAlipay(
+  data: SubscriptionPayRequest & { payment_method: string }
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/alipay/pay', data)
+  return res.data
+}
+
+export async function paySubscriptionWechat(
+  data: SubscriptionPayRequest & { payment_method: string }
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/wechat/pay', data)
+  return res.data
+}
+
 // ============================================================================
 // User Self Subscriptions
 // ============================================================================
