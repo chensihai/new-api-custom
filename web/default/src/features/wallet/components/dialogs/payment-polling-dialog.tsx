@@ -31,7 +31,7 @@ export function PaymentPollingDialog({
   onSuccess,
 }: PaymentPollingDialogProps) {
   const { t } = useTranslation()
-  const { status, polling } = useOrderPolling(tradeNo, 2000)
+  const { status, polling } = useOrderPolling(tradeNo, 5000)
 
   const handleClose = () => {
     onOpenChange(false)

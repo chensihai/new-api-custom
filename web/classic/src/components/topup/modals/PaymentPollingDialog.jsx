@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Button, Spin } from '@douyinfe/semi-ui';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import { API } from '../../../helpers';
 
-const useOrderPolling = (tradeNo, intervalMs = 5000, maxPolls = 60) => {
+const useOrderPolling = (tradeNo, initialIntervalMs = 5000, maxPolls = 60) => {
   const [status, setStatus] = useState(null);
   const [polling, setPolling] = useState(false);
+  const stoppedRef = useRef(false);
+  const pollingRef = useRef(false);
 
   const stopPolling = useCallback(() => {
+    stoppedRef.current = true;
     setPolling(false);
   }, []);
 
@@ -20,43 +23,66 @@ const useOrderPolling = (tradeNo, intervalMs = 5000, maxPolls = 60) => {
 
     setStatus(null);
     setPolling(true);
-    let pollCount = 0;
-    let stopped = false;
+    stoppedRef.current = false;
+    pollingRef.current = false;
 
-    const timer = setInterval(async () => {
-      if (stopped) return;
+    let pollCount = 0;
+    let currentInterval = initialIntervalMs;
+    let timeoutId = null;
+
+    const poll = async () => {
+      if (stoppedRef.current || pollingRef.current) return;
+
+      pollingRef.current = true;
       pollCount++;
+
       try {
         const res = await API.get(
           `/api/user/topup/status?trade_no=${encodeURIComponent(tradeNo)}`,
         );
         const s = res.data?.data?.status;
+
+        if (stoppedRef.current) return;
+
         if (s) {
           setStatus(s);
           if (s === 'success' || s === 'failed' || s === 'expired') {
-            stopped = true;
+            stoppedRef.current = true;
             setPolling(false);
-            clearInterval(timer);
             return;
           }
         }
       } catch {
-        // ignore
+        // ignore errors
+      } finally {
+        pollingRef.current = false;
       }
+
+      if (stoppedRef.current) return;
+
       if (pollCount >= maxPolls) {
-        stopped = true;
+        stoppedRef.current = true;
         setPolling(false);
         setStatus('timeout');
-        clearInterval(timer);
+        return;
       }
-    }, intervalMs);
+
+      // Exponential backoff: increase interval gradually, max 15s
+      currentInterval = Math.min(currentInterval * 1.2, 15000);
+      timeoutId = setTimeout(poll, currentInterval);
+    };
+
+    // Start first poll after a short delay
+    timeoutId = setTimeout(poll, 1000);
 
     return () => {
-      stopped = true;
-      clearInterval(timer);
+      stoppedRef.current = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       setPolling(false);
     };
-  }, [tradeNo, intervalMs, maxPolls]);
+  }, [tradeNo, initialIntervalMs, maxPolls]);
 
   return { status, polling, stopPolling };
 };
@@ -70,7 +96,7 @@ const PaymentPollingDialog = ({
   onSuccess,
 }) => {
   const { t } = useTranslation();
-  const { status, polling } = useOrderPolling(tradeNo, 2000);
+  const { status, polling } = useOrderPolling(tradeNo, 5000);
 
   useEffect(() => {
     if (status === 'success') {

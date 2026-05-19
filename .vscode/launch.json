@@ -44,6 +44,18 @@
                     "to": "/usr/local/go/src"
                 }
             ]
+        },
+        {
+            "name": "Local Debug (Go 直接运行)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "GIN_MODE": "debug"
+            },
+            "showLog": true
         }
     ]
 }

@@ -1,15 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getTopUpStatus } from '../api'
 
 export function useOrderPolling(
   tradeNo: string | null,
-  intervalMs = 5000,
+  initialIntervalMs = 5000,
   maxPolls = 60
 ) {
   const [status, setStatus] = useState<string | null>(null)
   const [polling, setPolling] = useState(false)
+  const stoppedRef = useRef(false)
+  const pollingRef = useRef(false)
 
   const stopPolling = useCallback(() => {
+    stoppedRef.current = true
     setPolling(false)
   }, [])
 
@@ -21,45 +24,64 @@ export function useOrderPolling(
 
     setStatus(null)
     setPolling(true)
-    let pollCount = 0
-    let stopped = false
+    stoppedRef.current = false
+    pollingRef.current = false
 
-    const timer = setInterval(async () => {
-      if (stopped) return
+    let pollCount = 0
+    let currentInterval = initialIntervalMs
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+    const poll = async () => {
+      if (stoppedRef.current || pollingRef.current) return
+
+      pollingRef.current = true
       pollCount++
+
       try {
         const res = await getTopUpStatus(tradeNo)
         const s = res.data?.status
+
+        if (stoppedRef.current) return
+
         if (s) {
           setStatus(s)
-          if (
-            s === 'success' ||
-            s === 'failed' ||
-            s === 'expired'
-          ) {
-            stopped = true
+          if (s === 'success' || s === 'failed' || s === 'expired') {
+            stoppedRef.current = true
             setPolling(false)
-            clearInterval(timer)
             return
           }
         }
       } catch {
-        // ignore
+        // ignore errors
+      } finally {
+        pollingRef.current = false
       }
+
+      if (stoppedRef.current) return
+
       if (pollCount >= maxPolls) {
-        stopped = true
+        stoppedRef.current = true
         setPolling(false)
         setStatus('timeout')
-        clearInterval(timer)
+        return
       }
-    }, intervalMs)
+
+      // Exponential backoff: increase interval gradually, max 15s
+      currentInterval = Math.min(currentInterval * 1.2, 15000)
+      timeoutId = setTimeout(poll, currentInterval)
+    }
+
+    // Start first poll after a short delay
+    timeoutId = setTimeout(poll, 1000)
 
     return () => {
-      stopped = true
-      clearInterval(timer)
+      stoppedRef.current = true
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
       setPolling(false)
     }
-  }, [tradeNo, intervalMs, maxPolls])
+  }, [tradeNo, initialIntervalMs, maxPolls])
 
   return { status, polling, stopPolling }
 }
