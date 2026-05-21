@@ -3170,7 +3170,7 @@
     "Rebate Cap": "Rebate Cap",
     "Rebate Enabled": "Rebate Enabled",
     "Rebate Rate": "Rebate Rate",
-    "Rebate rate (percentage)": "Rebate rate (percentage)",
+    "Rebate rate (0.01-100%, max 2 decimal places)": "Rebate rate (0.01-100%, max 2 decimal places)",
     "Rebate Rewards": "Rebate Rewards",
     "Rebate Settings": "Rebate Settings",
     "Rebate Statistics": "Rebate Statistics",

@@ -19,9 +19,9 @@ type TopUp struct {
 	TradeNo         string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	CreateTime      int64   `json:"create_time"`
-	CompleteTime    int64   `json:"complete_time"`
-	Status          string  `json:"status"`
+	CreateTime      int64   `json:"create_time" gorm:"index:idx_status_create_time"`
+	CompleteTime    int64   `json:"complete_time" gorm:"index:idx_status_complete_time"`
+	Status          string  `json:"status" gorm:"index:idx_status_create_time;index:idx_status_complete_time"`
 }
 
 const (
@@ -336,21 +336,20 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 	var quotaToAdd int
 	var payMoney float64
 	var paymentMethod string
+	var topUpId int
 
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		topUp := &TopUp{}
-		// 行级锁，避免并发补单
 		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
 			return errors.New("充值订单不存在")
 		}
 
-		// 幂等处理：已成功直接返回
 		if topUp.Status == common.TopUpStatusSuccess {
 			return nil
 		}
 
-		if topUp.Status != common.TopUpStatusPending {
-			return errors.New("订单状态不是待支付，无法补单")
+		if topUp.Status != common.TopUpStatusPending && topUp.Status != common.TopUpStatusExpired {
+			return errors.New("订单状态不允许补单")
 		}
 
 		// 计算应充值额度：
@@ -383,6 +382,7 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 		userId = topUp.UserId
 		payMoney = topUp.Money
 		paymentMethod = topUp.PaymentMethod
+		topUpId = topUp.Id
 		return nil
 	})
 
@@ -392,6 +392,11 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 
 	// 事务外记录日志，避免阻塞
 	RecordTopupLog(userId, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney), callerIp, paymentMethod, "admin")
+
+	if quotaToAdd > 0 && topUpId > 0 {
+		TriggerRebateOnRechargeAsync(userId, quotaToAdd, topUpId)
+	}
+
 	return nil
 }
 func RechargeCreem(referenceId string, customerEmail string, customerName string, callerIp string) (err error) {
@@ -620,7 +625,7 @@ func RechargeAlipay(tradeNo string, callerIp string) (err error) {
 			return nil
 		}
 
-		if topUp.Status != common.TopUpStatusPending {
+		if topUp.Status != common.TopUpStatusPending && topUp.Status != common.TopUpStatusExpired {
 			return errors.New("充值订单状态错误")
 		}
 
@@ -683,7 +688,7 @@ func RechargeWechat(tradeNo string, callerIp string) (err error) {
 			return nil
 		}
 
-		if topUp.Status != common.TopUpStatusPending {
+		if topUp.Status != common.TopUpStatusPending && topUp.Status != common.TopUpStatusExpired {
 			return errors.New("充值订单状态错误")
 		}
 
@@ -719,6 +724,20 @@ func RechargeWechat(tradeNo string, callerIp string) (err error) {
 	return nil
 }
 
+var OnTriggerRebateOnRecharge func(userId int, rechargeQuota int, topUpId int)
+
+func TriggerRebateOnRechargeAsync(userId int, rechargeQuota int, topUpId int) {
+	if OnTriggerRebateOnRecharge == nil {
+		return
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			common.SysError(fmt.Sprintf("返利触发panic user_id=%d top_up_id=%d error=%v", userId, topUpId, r))
+		}
+	}()
+	OnTriggerRebateOnRecharge(userId, rechargeQuota, topUpId)
+}
+
 func GetTopUpByTradeNoAndUserId(tradeNo string, userId int) *TopUp {
 	var topUp TopUp
 	if err := DB.Where("trade_no = ? AND user_id = ?", tradeNo, userId).First(&topUp).Error; err != nil {
@@ -731,6 +750,12 @@ func CountPendingTopUpsByUserId(userId int) (int64, error) {
 	var count int64
 	err := DB.Model(&TopUp{}).Where("user_id = ? AND status = ?", userId, common.TopUpStatusPending).Count(&count).Error
 	return count, err
+}
+
+func GetPendingTopUpsBefore(maxCreateTime int64, limit int) ([]TopUp, error) {
+	var topUps []TopUp
+	err := DB.Where("status = ? AND create_time <= ?", common.TopUpStatusPending, maxCreateTime).Order("create_time ASC").Limit(limit).Find(&topUps).Error
+	return topUps, err
 }
 
 func ExpireTopUpOrder(tradeNo string) error {
@@ -755,4 +780,14 @@ func ExpireTopUpOrder(tradeNo string) error {
 		topUp.CompleteTime = common.GetTimestamp()
 		return tx.Save(topUp).Error
 	})
+}
+
+func GetExpiredTopUpsInWindow(windowStart int64, limit int) ([]TopUp, error) {
+	var topUps []TopUp
+	err := DB.Where("status = ? AND complete_time >= ? AND complete_time > 0",
+		common.TopUpStatusExpired, windowStart).
+		Order("complete_time ASC").
+		Limit(limit).
+		Find(&topUps).Error
+	return topUps, err
 }

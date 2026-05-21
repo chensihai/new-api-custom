@@ -144,6 +144,16 @@ func main() {
 	gopool.Go(func() {
 		service.StartRebateSettlementTask()
 	})
+	gopool.Go(func() {
+		controller.StartTopUpPollingTask()
+	})
+	gopool.Go(func() {
+		controller.StartTopUpExpireTask()
+	})
+	gopool.Go(func() {
+		controller.StartTopUpExpiredPollingTask()
+	})
+	model.OnTriggerRebateOnRecharge = service.TriggerRebateOnRecharge
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")

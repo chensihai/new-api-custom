@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 
@@ -12,6 +12,12 @@ import (
 )
 
 func TriggerRebateOnRecharge(userId int, rechargeQuota int, topUpId int) {
+	defer func() {
+		if r := recover(); r != nil {
+			common.SysError(fmt.Sprintf("返利触发panic user_id=%d top_up_id=%d error=%v", userId, topUpId, r))
+		}
+	}()
+
 	if !setting.IsRebateEnabled() {
 		return
 	}
@@ -43,7 +49,7 @@ func TriggerRebateOnRecharge(userId int, rechargeQuota int, topUpId int) {
 		return
 	}
 
-	rebateQuota := (rechargeQuota * inviter.RebateRate) / 10000
+	rebateQuota := int(float64(rechargeQuota) * inviter.RebateRate / 100)
 	if rebateQuota == 0 {
 		return
 	}
@@ -75,7 +81,7 @@ func TriggerRebateOnRecharge(userId int, rechargeQuota int, topUpId int) {
 
 		if actualRebateQuota == 0 {
 			if cappedReason == model.CappedReasonFullyCapped {
-				logger.LogInfo(nil, fmt.Sprintf("返利计算 全额封顶 inviter_id=%d invitee_id=%d top_up_id=%d cap=%d", inviter.Id, userId, topUpId, inviter.RebateCap))
+				common.SysLog(fmt.Sprintf("返利计算 全额封顶 inviter_id=%d invitee_id=%d top_up_id=%d cap=%d", inviter.Id, userId, topUpId, inviter.RebateCap))
 			}
 			return nil
 		}
@@ -122,12 +128,12 @@ func TriggerRebateOnRecharge(userId int, rechargeQuota int, topUpId int) {
 	})
 
 	if err != nil {
-		logger.LogError(nil, fmt.Sprintf("返利计算 事务失败 inviter_id=%d invitee_id=%d top_up_id=%d error=%q", inviter.Id, userId, topUpId, err.Error()))
+		common.SysLog(fmt.Sprintf("返利计算 事务失败 inviter_id=%d invitee_id=%d top_up_id=%d error=%q", inviter.Id, userId, topUpId, err.Error()))
 		return
 	}
 
 	if actualRebateQuota > 0 {
-		logger.LogInfo(nil, fmt.Sprintf("返利计算成功 inviter_id=%d invitee_id=%d top_up_id=%d recharge_quota=%d rebate_quota=%d rate=%d cap_reason=%s", inviter.Id, userId, topUpId, rechargeQuota, actualRebateQuota, inviter.RebateRate, cappedReason))
+		common.SysLog(fmt.Sprintf("返利计算成功 inviter_id=%d invitee_id=%d top_up_id=%d recharge_quota=%d rebate_quota=%d rate=%.2f cap_reason=%s", inviter.Id, userId, topUpId, rechargeQuota, actualRebateQuota, inviter.RebateRate, cappedReason))
 	}
 }
 

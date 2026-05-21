@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -56,7 +58,7 @@ type User struct {
 	PhoneAuthVerified bool          `json:"phone_auth_verified" gorm:"type:boolean;default:false;column:phone_auth_verified"`
 	PhoneAuthTime    *int64        `json:"phone_auth_time" gorm:"column:phone_auth_time"`
 	PhoneAuthProvider string       `json:"phone_auth_provider" gorm:"type:varchar(32);column:phone_auth_provider"`
-	RebateRate        int          `json:"rebate_rate" gorm:"type:int;default:0;column:rebate_rate"`
+	RebateRate        float64      `json:"rebate_rate" gorm:"type:decimal(5,2);default:0;column:rebate_rate"`
 	RebateCap         int          `json:"rebate_cap" gorm:"type:int;default:0;column:rebate_cap"`
 	CreatedAt        int64          `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	LastLoginAt      int64          `json:"last_login_at" gorm:"default:0;column:last_login_at"`
@@ -343,6 +345,10 @@ func inviteUser(inviterId int) (err error) {
 	if err != nil {
 		return err
 	}
+	if setting.IsUserRebateVisible(user.Group) {
+		common.SysLog(fmt.Sprintf("邀请奖励被互斥屏蔽 inviter_id=%d group=%s 属于返利可见分组", inviterId, user.Group))
+		return nil
+	}
 	user.AffCount++
 	user.AffQuota += common.QuotaForInviter
 	user.AffHistoryQuota += common.QuotaForInviter
@@ -529,6 +535,14 @@ func (user *User) Edit(updatePassword bool) error {
 	}
 
 	newUser := *user
+	if newUser.RebateRate != 0 {
+		if newUser.RebateRate < 0.01 || newUser.RebateRate > 100 {
+			return fmt.Errorf("rebate_rate must be between 0.01 and 100 (0.01%% to 100%%)")
+		}
+		if math.Round(newUser.RebateRate*100) != newUser.RebateRate*100 {
+			return fmt.Errorf("rebate_rate must have at most 2 decimal places")
+		}
+	}
 	updates := map[string]interface{}{
 		"username":     newUser.Username,
 		"display_name": newUser.DisplayName,

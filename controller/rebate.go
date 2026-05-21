@@ -52,6 +52,15 @@ func GetRebateSummary(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	frozenWithdrawal, err := model.SumPendingAmountByUserId(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	transferableQuota := account.SettledQuota - frozenWithdrawal
+	if transferableQuota < 0 {
+		transferableQuota = 0
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
@@ -61,7 +70,8 @@ func GetRebateSummary(c *gin.Context) {
 			"deficit_quota":            account.DeficitQuota,
 			"total_settled_quota":      account.TotalSettledQuota,
 			"total_transferred_quota":  account.TotalTransferredQuota,
-			"transferable_quota":       account.SettledQuota,
+			"transferable_quota":       transferableQuota,
+			"frozen_withdrawal_quota":  frozenWithdrawal,
 		},
 	})
 }

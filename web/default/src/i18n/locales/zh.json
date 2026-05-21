@@ -3184,7 +3184,7 @@
     "Rebate Cap": "返利上限",
     "Rebate Enabled": "启用返利",
     "Rebate Rate": "返利比例",
-    "Rebate rate (percentage)": "返利比例（百分比）",
+    "Rebate rate (0.01-100%, max 2 decimal places)": "返利比例（0.01%-100%，最多2位小数）",
     "Rebate Rewards": "返利奖励",
     "Rebate Settings": "返利设置",
     "Rebate Statistics": "返利统计",

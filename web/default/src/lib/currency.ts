@@ -479,6 +479,24 @@ export function formatQuotaWithCurrency(
  * - Table column headers
  * - Form field labels
  */
+export function parseDisplayToQuota(displayAmount: number): number {
+  if (!Number.isFinite(displayAmount)) return 0
+  const { config, meta } = getCurrencyDisplay()
+
+  if (meta.kind === 'tokens') {
+    return Math.round(displayAmount)
+  }
+
+  let amountUSD: number
+  if (meta.kind === 'currency') {
+    amountUSD = displayAmount / meta.exchangeRate
+  } else {
+    amountUSD = displayAmount
+  }
+
+  return Math.round(amountUSD * config.quotaPerUnit)
+}
+
 export function getCurrencyLabel(): string {
   const { config, meta } = getCurrencyDisplay()
 

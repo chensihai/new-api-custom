@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -33,12 +33,15 @@ export function PaymentPollingDialog({
   const { t } = useTranslation()
   const { status, polling } = useOrderPolling(tradeNo, 5000)
 
-  const handleClose = () => {
-    onOpenChange(false)
-  }
+  const successHandledRef = useRef(false)
 
   useEffect(() => {
-    if (status === 'success') {
+    successHandledRef.current = false
+  }, [tradeNo])
+
+  useEffect(() => {
+    if (status === 'success' && !successHandledRef.current) {
+      successHandledRef.current = true
       onSuccess()
       onOpenChange(false)
     }
@@ -87,7 +90,7 @@ export function PaymentPollingDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={handleClose}>
+          <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('Close')}
           </Button>
         </DialogFooter>

@@ -119,7 +119,7 @@ const EditUserModal = (props) => {
       data.quota_amount = Number(
         quotaToDisplayAmount(data.quota || 0).toFixed(6),
       );
-      data.rebate_rate_percent = (data.rebate_rate || 0) / 100;
+      data.rebate_rate_percent = data.rebate_rate || 0;
       data.rebate_cap_amount = Number(
         quotaToDisplayAmount(data.rebate_cap || 0).toFixed(6),
       );
@@ -158,7 +158,7 @@ const EditUserModal = (props) => {
     delete payload.quota_amount;
     delete payload.rebate_rate_percent;
     delete payload.rebate_cap_amount;
-    payload.rebate_rate = Math.round((values.rebate_rate_percent || 0) * 100);
+    payload.rebate_rate = values.rebate_rate_percent || 0;
     payload.rebate_cap = displayAmountToQuota(values.rebate_cap_amount || 0);
     if (userId) {
       payload.id = parseInt(userId);
@@ -425,9 +425,9 @@ const EditUserModal = (props) => {
                       <Col span={12}>
                         <Form.InputNumber
                           field='rebate_rate_percent'
-                          label={t('返利比例（%）')}
+                          label={t('返利比例（0.01%-100%，最多2位小数）')}
                           placeholder='0'
-                          min={0}
+                          min={0.01}
                           max={100}
                           step={0.01}
                           precision={2}

@@ -28,7 +28,7 @@ var (
 	alipayMu     sync.RWMutex
 )
 
-func getAlipayClient() *alipay.Client {
+func GetAlipayClient() *alipay.Client {
 	alipayMu.RLock()
 	if alipayClient != nil {
 		client := alipayClient
@@ -70,7 +70,7 @@ func init() {
 	setting.OnAlipayConfigChange = resetAlipayClient
 }
 
-func isAlipayTopUpEnabled() bool {
+func IsAlipayTopUpEnabled() bool {
 	return setting.AlipayEnabled &&
 		strings.TrimSpace(setting.AlipayAppId) != "" &&
 		strings.TrimSpace(setting.AlipayPrivateKey) != "" &&
@@ -99,7 +99,7 @@ func RequestAlipayPay(c *gin.Context) {
 		return
 	}
 
-	if !isAlipayTopUpEnabled() {
+	if !IsAlipayTopUpEnabled() {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "支付宝支付未启用"})
 		return
 	}
@@ -140,7 +140,7 @@ func RequestAlipayPay(c *gin.Context) {
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("TOPALI%dNO%s", id, tradeNo)
 
-	client := getAlipayClient()
+	client := GetAlipayClient()
 	if client == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "当前管理员未配置支付宝支付信息"})
 		return
@@ -239,13 +239,13 @@ func RequestAlipayAmount(c *gin.Context) {
 }
 
 func AlipayNotify(c *gin.Context) {
-	if !isAlipayTopUpEnabled() {
+	if !IsAlipayTopUpEnabled() {
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("支付宝 webhook 被拒绝 reason=webhook_disabled path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
 
-	client := getAlipayClient()
+	client := GetAlipayClient()
 	if client == nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 client 未初始化 path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
 		_, _ = c.Writer.Write([]byte("fail"))

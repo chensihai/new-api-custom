@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatQuota } from '@/lib/format'
+import { parseDisplayToQuota } from '@/lib/currency'
 import { postRebateTransfer } from '../api-rebate'
 
 interface RebateTransferDialogProps {
@@ -26,10 +27,11 @@ export function RebateTransferDialog({
   onSuccess,
 }: RebateTransferDialogProps) {
   const { t } = useTranslation()
-  const [quota, setQuota] = useState<number>(0)
+  const [displayAmount, setDisplayAmount] = useState<number>(0)
   const [loading, setLoading] = useState(false)
 
   const handleTransfer = async () => {
+    const quota = parseDisplayToQuota(displayAmount)
     if (quota <= 0 || quota > maxQuota) return
     setLoading(true)
     try {
@@ -37,7 +39,7 @@ export function RebateTransferDialog({
       if (res.success) {
         onSuccess()
         onOpenChange(false)
-        setQuota(0)
+        setDisplayAmount(0)
       }
     } finally {
       setLoading(false)
@@ -60,9 +62,8 @@ export function RebateTransferDialog({
           <Input
             type='number'
             min={1}
-            max={maxQuota}
-            value={quota || ''}
-            onChange={(e) => setQuota(parseInt(e.target.value) || 0)}
+            value={displayAmount || ''}
+            onChange={(e) => setDisplayAmount(parseFloat(e.target.value) || 0)}
             placeholder={t('Enter amount to transfer')}
           />
         </div>
@@ -72,7 +73,7 @@ export function RebateTransferDialog({
           </Button>
           <Button
             onClick={handleTransfer}
-            disabled={loading || quota <= 0 || quota > maxQuota}
+            disabled={loading || displayAmount <= 0}
           >
             {t('Transfer')}
           </Button>

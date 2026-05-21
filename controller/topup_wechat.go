@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"crypto/rsa"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -35,12 +34,10 @@ import (
 var (
 	wechatPayClient    *core.Client
 	wechatNotifyHandler *notify.Handler
-	wechatPayInitOnce  sync.Once
-	wechatPayInitErr   error
 	wechatPayMu        sync.RWMutex
 )
 
-func getWechatPayClient() (*core.Client, *notify.Handler, error) {
+func GetWechatPayClient() (*core.Client, *notify.Handler, error) {
 	wechatPayMu.RLock()
 	if wechatPayClient != nil && wechatNotifyHandler != nil {
 		client := wechatPayClient
@@ -105,7 +102,7 @@ func init() {
 	setting.OnWechatPayConfigChange = resetWechatPayClient
 }
 
-func isWechatTopUpEnabled() bool {
+func IsWechatTopUpEnabled() bool {
 	return setting.WechatPayEnabled &&
 		strings.TrimSpace(setting.WechatPayMchID) != "" &&
 		strings.TrimSpace(setting.WechatPayAPIv3Key) != "" &&
@@ -135,12 +132,12 @@ func RequestWechatPay(c *gin.Context) {
 		return
 	}
 
-	if !isWechatTopUpEnabled() {
+	if !IsWechatTopUpEnabled() {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "微信支付未启用"})
 		return
 	}
 
-	client, _, err := getWechatPayClient()
+	client, _, err := GetWechatPayClient()
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付 client 初始化失败 error=%q", err.Error()))
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "微信支付配置错误"})
@@ -294,13 +291,13 @@ func RequestWechatAmount(c *gin.Context) {
 }
 
 func WechatNotify(c *gin.Context) {
-	if !isWechatTopUpEnabled() {
+	if !IsWechatTopUpEnabled() {
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("微信支付 webhook 被拒绝 reason=webhook_disabled path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
 		c.JSON(http.StatusOK, gin.H{"code": "FAIL", "message": "webhook disabled"})
 		return
 	}
 
-	_, handler, err := getWechatPayClient()
+	_, handler, err := GetWechatPayClient()
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付 client 初始化失败 path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
 		c.JSON(http.StatusOK, gin.H{"code": "FAIL", "message": "config error"})
@@ -401,5 +398,3 @@ func WechatNotify(c *gin.Context) {
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 充值成功 trade_no=%s user_id=%d client_ip=%s money=%.2f", tradeNo, topUp.UserId, c.ClientIP(), topUp.Money))
 	c.JSON(http.StatusOK, gin.H{"code": "SUCCESS", "message": "OK"})
 }
-
-var _ *rsa.PrivateKey

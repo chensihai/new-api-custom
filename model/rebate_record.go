@@ -21,7 +21,7 @@ type RebateRecord struct {
 	RechargeLogId    int    `json:"recharge_log_id" gorm:"type:int;index;column:recharge_log_id"`
 	RechargeQuota    int    `json:"recharge_quota" gorm:"type:int;default:0;column:recharge_quota"`
 	RebateQuota      int    `json:"rebate_quota" gorm:"type:int;default:0;column:rebate_quota"`
-	RebateRate       int    `json:"rebate_rate" gorm:"type:int;default:0;column:rebate_rate"`
+	RebateRate       float64 `json:"rebate_rate" gorm:"type:decimal(5,2);default:0;column:rebate_rate"`
 	Status           string `json:"status" gorm:"type:varchar(20);default:'pending';column:status"`
 	OriginalStatus   string `json:"original_status" gorm:"type:varchar(20);default:'';column:original_status"`
 	ExpectedSettleAt int64  `json:"expected_settle_at" gorm:"type:bigint;default:0;column:expected_settle_at"`
@@ -64,10 +64,11 @@ func GetRecordsByInviterIdAndStatus(inviterId int, status string, page int, page
 	return records, total, nil
 }
 
-func GetSettledRecordsForTransfer(inviterId int, limit int) ([]RebateRecord, error) {
+func GetSettledRecordsForTransfer(inviterId int, limit int, offset int) ([]RebateRecord, error) {
 	var records []RebateRecord
 	err := DB.Where("inviter_id = ? AND status = ?", inviterId, RebateStatusSettled).
 		Order("created_at asc").
+		Offset(offset).
 		Limit(limit).
 		Find(&records).Error
 	return records, err

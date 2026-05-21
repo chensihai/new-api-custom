@@ -28,6 +28,7 @@ import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { PaymentPollingDialog } from './components/dialogs/payment-polling-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { RebateRecordsList } from './components/rebate-records-list'
 import { RebateSummaryCard } from './components/rebate-summary-card'
 import { RebateTransferDialog } from './components/rebate-transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
@@ -375,6 +376,8 @@ export function Wallet(props: WalletProps) {
                 loading={!rebateSummary}
               />
             )}
+
+            <RebateRecordsList visible={rebateVisible} />
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

@@ -33,7 +33,10 @@ export const userFormSchema = z.object({
   quota_dollars: z.number().min(0).optional(),
   group: z.string().optional(),
   remark: z.string().optional(),
-  rebate_rate_percent: z.number().min(0).max(100).optional(),
+  rebate_rate_percent: z.number().min(0.01).max(100).refine(
+    (v) => /^\d+(\.\d{1,2})?$/.test(String(v)),
+    { message: 'Max 2 decimal places' }
+  ).optional(),
   rebate_cap_dollars: z.number().min(0).optional(),
 })
 
@@ -77,7 +80,7 @@ export function transformFormDataToPayload(
   } else {
     payload.group = data.group
     payload.remark = data.remark || undefined
-    payload.rebate_rate = Math.round((data.rebate_rate_percent ?? 0) * 100)
+    payload.rebate_rate = data.rebate_rate_percent ?? 0
     payload.rebate_cap = parseQuotaFromDollars(data.rebate_cap_dollars ?? 0)
     payload.id = userId
   }
@@ -97,7 +100,7 @@ export function transformUserToFormDefaults(user: User): UserFormValues {
     quota_dollars: quotaUnitsToDollars(user.quota),
     group: user.group || DEFAULT_GROUP,
     remark: user.remark || '',
-    rebate_rate_percent: (user.rebate_rate ?? 0) / 100,
+    rebate_rate_percent: user.rebate_rate ?? 0,
     rebate_cap_dollars: quotaUnitsToDollars(user.rebate_cap ?? 0),
   }
 }

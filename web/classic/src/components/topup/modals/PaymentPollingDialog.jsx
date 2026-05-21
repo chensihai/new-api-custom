@@ -98,8 +98,15 @@ const PaymentPollingDialog = ({
   const { t } = useTranslation();
   const { status, polling } = useOrderPolling(tradeNo, 5000);
 
+  const successHandledRef = useRef(false);
+
   useEffect(() => {
-    if (status === 'success') {
+    successHandledRef.current = false;
+  }, [tradeNo]);
+
+  useEffect(() => {
+    if (status === 'success' && !successHandledRef.current) {
+      successHandledRef.current = true;
       if (onSuccess) onSuccess();
       onClose();
     }

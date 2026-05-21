@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 )
@@ -35,7 +34,7 @@ func runRebateSettlementOnce() {
 	for {
 		records, err := model.GetPendingRecordsBefore(now, rebateSettlementBatchSize)
 		if err != nil {
-			logger.LogError(nil, fmt.Sprintf("返利结算 查询待结算记录失败 error=%q", err.Error()))
+			common.SysLog(fmt.Sprintf("返利结算 查询待结算记录失败 error=%q", err.Error()))
 			return
 		}
 		if len(records) == 0 {
@@ -44,10 +43,10 @@ func runRebateSettlementOnce() {
 
 		for _, record := range records {
 			if err := settleRebateRecord(&record); err != nil {
-				logger.LogError(nil, fmt.Sprintf("返利结算 结算记录失败 record_id=%d error=%q", record.Id, err.Error()))
+				common.SysLog(fmt.Sprintf("返利结算 结算记录失败 record_id=%d error=%q", record.Id, err.Error()))
 				continue
 			}
-			logger.LogInfo(nil, fmt.Sprintf("返利结算成功 record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
+			common.SysLog(fmt.Sprintf("返利结算成功 record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
 		}
 
 		if len(records) < rebateSettlementBatchSize {

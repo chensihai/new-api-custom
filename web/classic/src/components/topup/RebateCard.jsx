@@ -9,7 +9,7 @@ import {
   Spin,
 } from '@douyinfe/semi-ui';
 import { Gift, Zap, TrendingUp, Snowflake, AlertTriangle, CheckCircle } from 'lucide-react';
-import { API, showError, showSuccess, renderQuota } from '../../helpers';
+import { API, showError, showSuccess, renderQuota, getQuotaPerUnit, displayAmountToQuota, quotaToDisplayAmount } from '../../helpers';
 import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
@@ -42,7 +42,7 @@ const RebateCard = ({ t, renderQuota }) => {
   }, []);
 
   const handleTransfer = async () => {
-    const quota = parseInt(transferAmount);
+    const quota = displayAmountToQuota(parseFloat(transferAmount));
     if (!quota || quota <= 0) return showError(t('请输入有效的划转金额'));
     if (summary && quota > summary.transferable_quota) {
       return showError(t('划转金额超过可划转额度'));

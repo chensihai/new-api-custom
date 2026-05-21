@@ -3,7 +3,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 
 	"gorm.io/gorm"
@@ -12,7 +12,7 @@ import (
 func TriggerRebateOnRefund(inviteeId int, topUpId int) {
 	records, err := model.GetRecordsByRechargeLogIdAndStatuses(topUpId, []string{model.RebateStatusPending, model.RebateStatusSettled})
 	if err != nil {
-		logger.LogError(nil, fmt.Sprintf("返利冻结 查询记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
+		common.SysLog(fmt.Sprintf("返利冻结 查询记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
 		return
 	}
 	if len(records) == 0 {
@@ -21,10 +21,10 @@ func TriggerRebateOnRefund(inviteeId int, topUpId int) {
 
 	for _, record := range records {
 		if err := freezeRebateRecord(&record); err != nil {
-			logger.LogError(nil, fmt.Sprintf("返利冻结 冻结记录失败 record_id=%d error=%q", record.Id, err.Error()))
+			common.SysLog(fmt.Sprintf("返利冻结 冻结记录失败 record_id=%d error=%q", record.Id, err.Error()))
 			continue
 		}
-		logger.LogInfo(nil, fmt.Sprintf("返利冻结成功 record_id=%d inviter_id=%d rebate_quota=%d prev_status=%s", record.Id, record.InviterId, record.RebateQuota, record.Status))
+		common.SysLog(fmt.Sprintf("返利冻结成功 record_id=%d inviter_id=%d rebate_quota=%d prev_status=%s", record.Id, record.InviterId, record.RebateQuota, record.Status))
 	}
 }
 
@@ -60,7 +60,7 @@ func freezeRebateRecord(record *model.RebateRecord) error {
 func TriggerRebateOnRefundConfirm(topUpId int, refundLogId int) {
 	records, err := model.GetRecordsByRechargeLogIdAndStatuses(topUpId, []string{model.RebateStatusFrozen, model.RebateStatusTransferred})
 	if err != nil {
-		logger.LogError(nil, fmt.Sprintf("返利扣回 查询记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
+		common.SysLog(fmt.Sprintf("返利扣回 查询记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
 		return
 	}
 	if len(records) == 0 {
@@ -70,16 +70,16 @@ func TriggerRebateOnRefundConfirm(topUpId int, refundLogId int) {
 	for _, record := range records {
 		if record.Status == model.RebateStatusFrozen {
 			if err := clawBackFrozenRecord(&record); err != nil {
-				logger.LogError(nil, fmt.Sprintf("返利扣回 扣回冻结记录失败 record_id=%d error=%q", record.Id, err.Error()))
+				common.SysLog(fmt.Sprintf("返利扣回 扣回冻结记录失败 record_id=%d error=%q", record.Id, err.Error()))
 				continue
 			}
-			logger.LogInfo(nil, fmt.Sprintf("返利扣回成功(冻结→扣回) record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
+			common.SysLog(fmt.Sprintf("返利扣回成功(冻结→扣回) record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
 		} else if record.Status == model.RebateStatusTransferred {
 			if err := createDeficitFromTransferredRecord(&record, refundLogId); err != nil {
-				logger.LogError(nil, fmt.Sprintf("返利欠扣 创建欠扣记录失败 record_id=%d error=%q", record.Id, err.Error()))
+				common.SysLog(fmt.Sprintf("返利欠扣 创建欠扣记录失败 record_id=%d error=%q", record.Id, err.Error()))
 				continue
 			}
-			logger.LogInfo(nil, fmt.Sprintf("返利欠扣成功(已划转→欠扣) record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
+			common.SysLog(fmt.Sprintf("返利欠扣成功(已划转→欠扣) record_id=%d inviter_id=%d rebate_quota=%d", record.Id, record.InviterId, record.RebateQuota))
 		}
 	}
 }
@@ -137,7 +137,7 @@ func createDeficitFromTransferredRecord(record *model.RebateRecord, refundLogId 
 func TriggerRebateOnRefundCancel(topUpId int) {
 	records, err := model.GetFrozenRecordsByRechargeLogId(topUpId)
 	if err != nil {
-		logger.LogError(nil, fmt.Sprintf("返利解冻 查询冻结记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
+		common.SysLog(fmt.Sprintf("返利解冻 查询冻结记录失败 top_up_id=%d error=%q", topUpId, err.Error()))
 		return
 	}
 	if len(records) == 0 {
@@ -146,10 +146,10 @@ func TriggerRebateOnRefundCancel(topUpId int) {
 
 	for _, record := range records {
 		if err := unfreezeRebateRecord(&record); err != nil {
-			logger.LogError(nil, fmt.Sprintf("返利解冻 解冻记录失败 record_id=%d error=%q", record.Id, err.Error()))
+			common.SysLog(fmt.Sprintf("返利解冻 解冻记录失败 record_id=%d error=%q", record.Id, err.Error()))
 			continue
 		}
-		logger.LogInfo(nil, fmt.Sprintf("返利解冻成功 record_id=%d inviter_id=%d rebate_quota=%d restored_status=%s", record.Id, record.InviterId, record.RebateQuota, record.OriginalStatus))
+		common.SysLog(fmt.Sprintf("返利解冻成功 record_id=%d inviter_id=%d rebate_quota=%d restored_status=%s", record.Id, record.InviterId, record.RebateQuota, record.OriginalStatus))
 	}
 }
 

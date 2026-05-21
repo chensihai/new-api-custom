@@ -149,6 +149,11 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/rebate/invitee-progress", controller.GetRebateInviteeProgress)
 				selfRoute.POST("/rebate/transfer", controller.TransferRebate)
 
+				// Withdrawal routes
+				selfRoute.POST("/rebate/withdrawal", controller.CreateWithdrawal)
+				selfRoute.GET("/rebate/withdrawal", controller.GetWithdrawalRequests)
+				selfRoute.POST("/rebate/withdrawal/:id/cancel", controller.CancelWithdrawal)
+
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
 				selfRoute.POST("/2fa/setup", controller.Setup2FA)
@@ -193,6 +198,10 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/rebate/user/:id/summary", controller.AdminGetUserRebateSummary)
 				adminRoute.GET("/rebate/user/:id/records", controller.AdminGetUserRebateRecords)
 				adminRoute.GET("/rebate/user/:id/deficits", controller.AdminGetUserRebateDeficits)
+
+				// Admin Withdrawal routes
+				adminRoute.GET("/rebate/withdrawal/admin", controller.AdminGetWithdrawalRequests)
+				adminRoute.POST("/rebate/withdrawal/admin/:id/approve", controller.AdminApproveWithdrawal)
 			}
 		}
 

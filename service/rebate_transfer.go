@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 
 	"gorm.io/gorm"
@@ -39,43 +39,56 @@ func TransferRebate(userId int, quota int) error {
 		}
 
 		remaining := quota
-		records, err := model.GetSettledRecordsForTransfer(userId, 100)
-		if err != nil {
-			return err
-		}
+		var offset int
+		const batchSize = 100
 
-		for _, record := range records {
-			if remaining <= 0 {
+		for remaining > 0 {
+			records, err := model.GetSettledRecordsForTransfer(userId, batchSize, offset)
+			if err != nil {
+				return err
+			}
+			if len(records) == 0 {
 				break
 			}
-			if record.RebateQuota <= remaining {
-				if err := tx.Model(&record).Update("status", model.RebateStatusTransferred).Error; err != nil {
-					return err
+
+			for _, record := range records {
+				if remaining <= 0 {
+					break
 				}
-				remaining -= record.RebateQuota
-			} else {
-				splitRecord := &model.RebateRecord{
-					InviterId:        record.InviterId,
-					InviteeId:        record.InviteeId,
-					RechargeLogId:    0,
-					RechargeQuota:    0,
-					RebateQuota:      record.RebateQuota - remaining,
-					RebateRate:       record.RebateRate,
-					Status:           model.RebateStatusSettled,
-					ExpectedSettleAt: record.ExpectedSettleAt,
-					CappedReason:     record.CappedReason,
+				if record.RebateQuota <= remaining {
+					if err := tx.Model(&record).Update("status", model.RebateStatusTransferred).Error; err != nil {
+						return err
+					}
+					remaining -= record.RebateQuota
+				} else {
+					splitRecord := &model.RebateRecord{
+						InviterId:        record.InviterId,
+						InviteeId:        record.InviteeId,
+						RechargeLogId:    0,
+						RechargeQuota:    0,
+						RebateQuota:      record.RebateQuota - remaining,
+						RebateRate:       record.RebateRate,
+						Status:           model.RebateStatusSettled,
+						ExpectedSettleAt: record.ExpectedSettleAt,
+						CappedReason:     record.CappedReason,
+					}
+					if err := tx.Create(splitRecord).Error; err != nil {
+						return err
+					}
+					if err := tx.Model(&record).Updates(map[string]interface{}{
+						"rebate_quota": remaining,
+						"status":       model.RebateStatusTransferred,
+					}).Error; err != nil {
+						return err
+					}
+					remaining = 0
 				}
-				if err := tx.Create(splitRecord).Error; err != nil {
-					return err
-				}
-				if err := tx.Model(&record).Updates(map[string]interface{}{
-					"rebate_quota": remaining,
-					"status":       model.RebateStatusTransferred,
-				}).Error; err != nil {
-					return err
-				}
-				remaining = 0
 			}
+
+			if len(records) < batchSize {
+				break
+			}
+			offset += batchSize
 		}
 
 		if remaining > 0 {
@@ -93,7 +106,7 @@ func TransferRebate(userId int, quota int) error {
 			return fmt.Errorf("增加用户余额失败: %w", err)
 		}
 
-		logger.LogInfo(nil, fmt.Sprintf("返利划转成功 user_id=%d quota=%d", userId, quota))
+		common.SysLog(fmt.Sprintf("返利划转成功 user_id=%d quota=%d", userId, quota))
 		return nil
 	})
 }

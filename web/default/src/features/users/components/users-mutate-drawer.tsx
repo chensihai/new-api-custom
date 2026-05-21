@@ -404,7 +404,7 @@ export function UsersMutateDrawer({
                         <FormControl>
                           <Input
                             type='number'
-                            min={0}
+                            min={0.01}
                             max={100}
                             step={0.01}
                             placeholder='0'
@@ -417,7 +417,7 @@ export function UsersMutateDrawer({
                           />
                         </FormControl>
                         <FormDescription>
-                          {t('Rebate rate (percentage)')}
+                          {t('Rebate rate (0.01-100%, max 2 decimal places)')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

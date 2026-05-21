@@ -248,6 +248,8 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
+	// Migrate rebate_rate from permyriad (int) to percent (decimal)
+	migrateRebateRateToPercent()
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
@@ -285,6 +287,7 @@ func migrateDB() error {
 		&RebateRecord{},
 		&RebateDeficit{},
 		&RebateCapProgress{},
+		&WithdrawalRequest{},
 	)
 	if err != nil {
 		return err
@@ -338,6 +341,7 @@ func migrateDBFast() error {
 		{&RebateRecord{}, "RebateRecord"},
 		{&RebateDeficit{}, "RebateDeficit"},
 		{&RebateCapProgress{}, "RebateCapProgress"},
+		{&WithdrawalRequest{}, "WithdrawalRequest"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -568,6 +572,165 @@ func migrateSubscriptionPlanPriceAmount() {
 			common.SysLog(fmt.Sprintf("Warning: failed to migrate %s.%s to decimal: %v", tableName, columnName, err))
 		} else {
 			common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to decimal(10,6)", tableName, columnName))
+		}
+	}
+}
+
+func migrateRebateRateToPercent() {
+	const migrationKey = "migration.rebate_rate_percent"
+
+	var opt Option
+	if err := DB.Where("`key` = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) || !DB.Migrator().HasColumn(&User{}, "rebate_rate") {
+		if !DB.Migrator().HasTable(&RebateRecord{}) || !DB.Migrator().HasColumn(&RebateRecord{}, "rebate_rate") {
+			return
+		}
+	}
+
+	common.SysLog("开始迁移 rebate_rate 从万分比到百分比...")
+
+	if common.UsingSQLite {
+		migrateRebateRateToPercentSQLite()
+	} else if common.UsingMySQL {
+		migrateRebateRateToPercentMySQL()
+	} else if common.UsingPostgreSQL {
+		migrateRebateRateToPercentPostgreSQL()
+	}
+
+	DB.Where("`key` = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+	common.SysLog("rebate_rate 万分比到百分比迁移完成")
+}
+
+func migrateRebateRateToPercentSQLite() {
+	tables := []string{"users", "rebate_records"}
+	for _, table := range tables {
+		if !DB.Migrator().HasTable(table) {
+			continue
+		}
+		if !DB.Migrator().HasColumn(table, "rebate_rate") {
+			continue
+		}
+
+		tempCol := "rebate_rate_new"
+		if DB.Migrator().HasColumn(table, tempCol) {
+			_ = DB.Migrator().DropColumn(table, tempCol)
+		}
+
+		addSQL := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s DECIMAL(5,2) DEFAULT 0", table, tempCol)
+		if err := DB.Exec(addSQL).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 SQLite ADD COLUMN失败 table=%s error=%v", table, err))
+			continue
+		}
+
+		updateSQL := fmt.Sprintf("UPDATE %s SET %s = CASE WHEN rebate_rate > 0 THEN rebate_rate / 100.0 ELSE 0 END", table, tempCol)
+		if err := DB.Exec(updateSQL).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 SQLite UPDATE失败 table=%s error=%v", table, err))
+			continue
+		}
+
+		_ = DB.Migrator().DropColumn(table, "rebate_rate")
+		_ = DB.Migrator().RenameColumn(table, tempCol, "rebate_rate")
+
+		common.SysLog(fmt.Sprintf("rebate_rate迁移 SQLite完成 table=%s", table))
+	}
+}
+
+func migrateRebateRateToPercentMySQL() {
+	tables := []struct {
+		name   string
+		model  interface{}
+	}{
+		{"users", &User{}},
+		{"rebate_records", &RebateRecord{}},
+	}
+
+	for _, t := range tables {
+		if !DB.Migrator().HasTable(t.name) {
+			continue
+		}
+		if !DB.Migrator().HasColumn(t.model, "rebate_rate") {
+			continue
+		}
+
+		var columnType string
+		if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+			WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+			t.name, "rebate_rate").Scan(&columnType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 MySQL查询列类型失败 table=%s error=%v", t.name, err))
+			continue
+		}
+
+		if strings.HasPrefix(strings.ToLower(columnType), "decimal") {
+			continue
+		}
+
+		err := DB.Transaction(func(tx *gorm.DB) error {
+			alterSQL := fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN rebate_rate DECIMAL(5,2) NOT NULL DEFAULT 0", t.name)
+			if err := tx.Exec(alterSQL).Error; err != nil {
+				return err
+			}
+			updateSQL := fmt.Sprintf("UPDATE %s SET rebate_rate = rebate_rate / 100.0 WHERE rebate_rate > 0", t.name)
+			if err := tx.Exec(updateSQL).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 MySQL失败 table=%s error=%v", t.name, err))
+		} else {
+			common.SysLog(fmt.Sprintf("rebate_rate迁移 MySQL完成 table=%s", t.name))
+		}
+	}
+}
+
+func migrateRebateRateToPercentPostgreSQL() {
+	tables := []struct {
+		name   string
+		model  interface{}
+	}{
+		{"users", &User{}},
+		{"rebate_records", &RebateRecord{}},
+	}
+
+	for _, t := range tables {
+		if !DB.Migrator().HasTable(t.name) {
+			continue
+		}
+		if !DB.Migrator().HasColumn(t.model, "rebate_rate") {
+			continue
+		}
+
+		var dataType string
+		if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+			t.name, "rebate_rate").Scan(&dataType).Error; err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 PG查询列类型失败 table=%s error=%v", t.name, err))
+			continue
+		}
+
+		if dataType == "numeric" {
+			continue
+		}
+
+		err := DB.Transaction(func(tx *gorm.DB) error {
+			alterSQL := fmt.Sprintf(`ALTER TABLE %s ALTER COLUMN rebate_rate TYPE DECIMAL(5,2) USING rebate_rate::decimal(5,2)`, t.name)
+			if err := tx.Exec(alterSQL).Error; err != nil {
+				return err
+			}
+			updateSQL := fmt.Sprintf("UPDATE %s SET rebate_rate = rebate_rate / 100.0 WHERE rebate_rate > 0", t.name)
+			if err := tx.Exec(updateSQL).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			common.SysLog(fmt.Sprintf("Warning: rebate_rate迁移 PostgreSQL失败 table=%s error=%v", t.name, err))
+		} else {
+			common.SysLog(fmt.Sprintf("rebate_rate迁移 PostgreSQL完成 table=%s", t.name))
 		}
 	}
 }

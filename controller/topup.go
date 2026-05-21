@@ -94,7 +94,7 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
-	enableAlipay := isAlipayTopUpEnabled()
+	enableAlipay := IsAlipayTopUpEnabled()
 	if enableAlipay {
 		hasAlipay := false
 		for _, method := range payMethods {
@@ -113,7 +113,7 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
-	enableWechatPay := isWechatTopUpEnabled()
+	enableWechatPay := IsWechatTopUpEnabled()
 	if enableWechatPay {
 		hasWechatPay := false
 		for _, method := range payMethods {
@@ -577,7 +577,6 @@ func GetTopUpStatus(c *gin.Context) {
 	status := topUp.Status
 	if status == common.TopUpStatusPending {
 		if common.GetTimestamp()-topUp.CreateTime > common.TopUpOrderTimeoutSeconds {
-			_ = model.ExpireTopUpOrder(tradeNo)
 			status = common.TopUpStatusExpired
 		}
 	}

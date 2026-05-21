@@ -41,7 +41,7 @@ func SubscriptionRequestWechatPay(c *gin.Context) {
 		return
 	}
 
-	if !isWechatTopUpEnabled() {
+	if !IsWechatTopUpEnabled() {
 		common.ApiErrorMsg(c, "微信支付未启用")
 		return
 	}
@@ -73,7 +73,7 @@ func SubscriptionRequestWechatPay(c *gin.Context) {
 		}
 	}
 
-	client, _, clientErr := getWechatPayClient()
+	client, _, clientErr := GetWechatPayClient()
 	if clientErr != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付订阅 client 初始化失败 error=%q", clientErr.Error()))
 		common.ApiErrorMsg(c, "微信支付配置错误")
@@ -173,13 +173,13 @@ func SubscriptionRequestWechatPay(c *gin.Context) {
 }
 
 func SubscriptionWechatNotify(c *gin.Context) {
-	if !isWechatTopUpEnabled() {
+	if !IsWechatTopUpEnabled() {
 		logger.LogWarn(c.Request.Context(), fmt.Sprintf("微信支付订阅 webhook 被拒绝 reason=webhook_disabled path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
 		c.JSON(http.StatusOK, gin.H{"code": "FAIL", "message": "webhook disabled"})
 		return
 	}
 
-	_, handler, err := getWechatPayClient()
+	_, handler, err := GetWechatPayClient()
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付订阅 client 初始化失败 path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
 		c.JSON(http.StatusOK, gin.H{"code": "FAIL", "message": "config error"})
