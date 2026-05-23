@@ -23,6 +23,7 @@ import SiderBar from './SiderBar';
 import App from '../../App';
 import FooterBar from './Footer';
 import { ToastContainer } from 'react-toastify';
+import { Toaster } from '@/components/ui/sonner';
 import ErrorBoundary from '../common/ErrorBoundary';
 import React, { useContext, useEffect, useState } from 'react';
 import { useIsMobile } from '../../hooks/common/useIsMobile';
@@ -79,10 +80,14 @@ const PageLayout = () => {
   }, [isMobile, drawerOpen, collapsed, setCollapsed]);
 
   const loadUser = () => {
-    let user = localStorage.getItem('user');
-    if (user) {
-      let data = JSON.parse(user);
-      userDispatch({ type: 'login', payload: data });
+    try {
+      let user = localStorage.getItem('user');
+      if (user) {
+        let data = JSON.parse(user);
+        userDispatch({ type: 'login', payload: data });
+      }
+    } catch {
+      localStorage.removeItem('user');
     }
   };
 
@@ -234,6 +239,7 @@ const PageLayout = () => {
         </Layout>
       </Layout>
       <ToastContainer />
+      <Toaster />
     </Layout>
   );
 };

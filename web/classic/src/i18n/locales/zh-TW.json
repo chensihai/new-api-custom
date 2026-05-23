@@ -270,6 +270,8 @@
     "参照生视频": "參照生影片",
     "操练场": "操練場",
     "操练场和聊天功能": "操練場和聊天功能",
+    "游乐场": "遊樂場",
+    "游乐场和聊天功能": "遊樂場和聊天功能",
     "操作": "操作",
     "操作成功完成！": "操作成功完成！",
     "操作管理员": "操作管理員",
@@ -3679,6 +3681,20 @@
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL 必須以 http:// 或 https:// 開頭",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "whsec_xxx 的 Webhook 簽名密鑰，敏感資訊不顯示",
     "Worker地址": "Worker位址",
-    "Worker密钥": "Worker密鑰"
+    "Worker密钥": "Worker密鑰",
+    "Ask anything": "隨便問",
+    "Attach": "附加",
+    "Error": "錯誤",
+    "Feature in development": "功能開發中",
+    "Go to Settings": "前往設定",
+    "Model Price Not Configured": "模型價格未配置",
+    "Search feature in development": "搜尋功能開發中",
+    "Search": "搜尋",
+    "Send": "傳送",
+    "Stop": "停止",
+    "Take photo": "拍照",
+    "Take screenshot": "截圖",
+    "Upload file": "上傳檔案",
+    "Upload photo": "上傳照片"
   }
 }

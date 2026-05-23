@@ -203,7 +203,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const chatMenuItems = useMemo(() => {
     const items = [
       {
-        text: t('操练场'),
+        text: t('游乐场'),
         itemKey: 'playground',
         to: '/playground',
       },

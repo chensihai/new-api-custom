@@ -267,6 +267,8 @@
     "参照生视频": "参照動画生成",
     "操练场": "Playground",
     "操练场和聊天功能": "プレイグラウンドとチャット機能",
+    "游乐场": "プレイグラウンド",
+    "游乐场和聊天功能": "プレイグラウンドとチャット機能",
     "操作": "操作",
     "操作成功完成！": "操作が正常に完了しました",
     "操作管理员": "操作管理者",
@@ -3655,6 +3657,20 @@
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URLは、http://またはhttps://で始まることが必須です",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "whsec_xxx のWebhook署名シークレット。機密情報は表示されません",
     "Worker地址": "Workerアドレス",
-    "Worker密钥": "WorkerAPIキー"
+    "Worker密钥": "WorkerAPIキー",
+    "Ask anything": "何でも質問する",
+    "Attach": "添付",
+    "Error": "エラー",
+    "Feature in development": "開発中の機能です",
+    "Go to Settings": "設定へ移動",
+    "Model Price Not Configured": "モデル価格が未設定",
+    "Search feature in development": "検索機能は開発中です",
+    "Search": "検索",
+    "Send": "送信",
+    "Stop": "停止",
+    "Take photo": "写真を撮る",
+    "Take screenshot": "スクリーンショットを撮る",
+    "Upload file": "ファイルをアップロード",
+    "Upload photo": "写真をアップロード"
   }
 }

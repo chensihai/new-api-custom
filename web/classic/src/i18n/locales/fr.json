@@ -273,6 +273,8 @@
     "参照生视频": "Générer une vidéo par référence",
     "操练场": "Terrain de jeu",
     "操练场和聊天功能": "Terrain de jeu et fonctions de discussion",
+    "游乐场": "Terrain de jeu",
+    "游乐场和聊天功能": "Terrain de jeu et fonctions de discussion",
     "操作": "Actions",
     "操作成功完成！": "Opération terminée avec succès !",
     "操作管理员": "Administrateur opérateur",
@@ -3686,6 +3688,20 @@
     "Well-Known URL 必须以 http:// 或 https:// 开头": "L'URL bien connue doit commencer par http:// ou https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Clé de signature Webhook whsec_xxx, les informations sensibles ne sont pas affichées",
     "Worker地址": "Adresse du Worker",
-    "Worker密钥": "Clé du Worker"
+    "Worker密钥": "Clé du Worker",
+    "Ask anything": "Demandez n'importe quoi",
+    "Attach": "Joindre",
+    "Error": "Erreur",
+    "Feature in development": "Fonctionnalité en développement",
+    "Go to Settings": "Aller aux paramètres",
+    "Model Price Not Configured": "Prix du modèle non configuré",
+    "Search feature in development": "Fonctionnalité de recherche en développement",
+    "Search": "Rechercher",
+    "Send": "Envoyer",
+    "Stop": "Arrêter",
+    "Take photo": "Prendre une photo",
+    "Take screenshot": "Prendre une capture d'écran",
+    "Upload file": "Téléverser un fichier",
+    "Upload photo": "Téléverser une photo"
   }
 }
