@@ -113,6 +113,7 @@ export const BINDING_FIELDS = [
   { key: 'wechat_id', label: 'WeChat ID' },
   { key: 'email', label: 'Email' },
   { key: 'telegram_id', label: 'Telegram ID' },
+  { key: 'phone_number', label: 'Phone Number' },
 ] as const
 
 // ============================================================================

@@ -57,6 +57,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { createUser, updateUser, getUser, getGroups } from '../api'
 import { BINDING_FIELDS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import { api } from '@/lib/api'
 import {
   userFormSchema,
   type UserFormValues,
@@ -84,6 +85,19 @@ export function UsersMutateDrawer({
   const { triggerRefresh } = useUsers()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open && isUpdate && currentRow?.phone_number) {
+      api.get<{ success: boolean; data?: { masked_phone?: string } }>(
+        `/api/phone-auth/admin/user/${currentRow.id}/phone`
+      )
+        .then((res) => setMaskedPhone(res.data?.data?.masked_phone || null))
+        .catch(() => setMaskedPhone(null))
+    } else {
+      setMaskedPhone(null)
+    }
+  }, [open, isUpdate, currentRow])
 
   // Fetch groups
   const { data: groupsData } = useQuery({
@@ -470,20 +484,41 @@ export function UsersMutateDrawer({
                   </p>
 
                   <div className='space-y-3'>
-                    {BINDING_FIELDS.map(({ key, label }) => (
-                      <div key={key}>
-                        <Label className='text-muted-foreground text-xs'>
-                          {t(label)}
-                        </Label>
-                        <Input
-                          value={
-                            (currentRow?.[key as keyof User] as string) || '-'
-                          }
-                          disabled
-                          className='mt-1'
-                        />
-                      </div>
-                    ))}
+                    {BINDING_FIELDS.map(({ key, label }) => {
+                      if (key === 'phone_number') {
+                        const hasPhone = Boolean(currentRow?.phone_number)
+                        return (
+                          <div key={key}>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t(label)}
+                            </Label>
+                            <Input
+                              value={
+                                hasPhone
+                                  ? maskedPhone || t('Bound')
+                                  : '-'
+                              }
+                              disabled
+                              className='mt-1'
+                            />
+                          </div>
+                        )
+                      }
+                      return (
+                        <div key={key}>
+                          <Label className='text-muted-foreground text-xs'>
+                            {t(label)}
+                          </Label>
+                          <Input
+                            value={
+                              (currentRow?.[key as keyof User] as string) || '-'
+                            }
+                            disabled
+                            className='mt-1'
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}

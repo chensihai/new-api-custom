@@ -52,6 +52,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { login, wechatLoginByCode } from '@/features/auth/api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
@@ -60,6 +61,9 @@ import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import { beginPasskeyLogin, finishPasskeyLogin } from '@/features/auth/passkey'
 import type { AuthFormProps } from '@/features/auth/types'
+import { PhoneSmsLoginForm } from '@/features/auth/phone-auth/components/phone-sms-login-form'
+import { OneClickLoginButton } from '@/features/auth/phone-auth/components/one-click-login-button'
+import { usePhoneAuthEnabled } from '@/features/auth/phone-auth/hooks/use-phone-auth-enabled'
 
 export function UserAuthForm({
   className,
@@ -74,8 +78,13 @@ export function UserAuthForm({
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState<'password' | 'phone'>('password')
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
   const loginFailedMessage = t('Login failed')
+
+  const { data: phoneAuthData } = usePhoneAuthEnabled()
+  const smsAvailable = Boolean(phoneAuthData?.sms_available)
+  const oneClickAvailable = Boolean(phoneAuthData?.one_click_available)
 
   const { status } = useStatus()
   const passkeyLoginEnabled = Boolean(
@@ -276,6 +285,33 @@ export function UserAuthForm({
   }
 
   return (
+    <>
+      {smsAvailable && (
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'password' | 'phone')}
+          className='w-full'
+        >
+          <TabsList className='mb-4 w-full'>
+            <TabsTrigger value='password' className='flex-1'>
+              {t('Password Login')}
+            </TabsTrigger>
+            <TabsTrigger value='phone' className='flex-1'>
+              {t('Phone Login')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {activeTab === 'phone' && smsAvailable ? (
+        <PhoneSmsLoginForm
+          redirectTo={redirectTo}
+          onSwitchToPassword={() => setActiveTab('password')}
+          agreedToLegal={agreedToLegal}
+          requiresLegalConsent={requiresLegalConsent}
+          className={className}
+        />
+      ) : (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
@@ -288,10 +324,10 @@ export function UserAuthForm({
           name='username'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('Username or Email')}</FormLabel>
+              <FormLabel>{t(smsAvailable ? 'Username or Email or Phone' : 'Username or Email')}</FormLabel>
               <FormControl>
                 <Input
-                  placeholder={t('Enter your username or email')}
+                  placeholder={t(smsAvailable ? 'Enter username, email or phone number' : 'Enter your username or email')}
                   {...field}
                 />
               </FormControl>
@@ -379,6 +415,15 @@ export function UserAuthForm({
           onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
           isWeChatLoading={isWeChatSubmitting}
         />
+
+        {/* One-Click Phone Login */}
+        {oneClickAvailable && (
+          <div className='mt-2'>
+            <OneClickLoginButton
+              disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+            />
+          </div>
+        )}
       </form>
 
       {hasWeChatLogin && (
@@ -450,5 +495,7 @@ export function UserAuthForm({
         </Dialog>
       )}
     </Form>
+      )}
+    </>
   )
 }

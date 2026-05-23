@@ -35,3 +35,9 @@ data/
 token_estimator_test.go
 skills-lock.json
 *.tar
+*.tar.gz
+new-api-linux-amd64
+release/
+Dockerfile.local
+.codeartsdoer/
+.vscode/

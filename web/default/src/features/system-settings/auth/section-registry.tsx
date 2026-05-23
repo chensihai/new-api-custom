@@ -23,6 +23,7 @@ import { BotProtectionSection } from './bot-protection-section'
 import { CustomOAuthSection } from './custom-oauth/custom-oauth-section'
 import { OAuthSection } from './oauth-section'
 import { PasskeySection } from './passkey-section'
+import { PhoneAuthProviderSection } from './phone-auth-provider/phone-auth-provider-section'
 
 const AUTH_SECTIONS = [
   {
@@ -34,6 +35,9 @@ const AUTH_SECTIONS = [
         defaultValues={{
           PasswordLoginEnabled: settings.PasswordLoginEnabled,
           PasswordRegisterEnabled: settings.PasswordRegisterEnabled,
+          PhoneLoginEnabled: settings.PhoneLoginEnabled,
+          PhoneRegisterEnabled: settings.PhoneRegisterEnabled,
+          PhoneAuthForceRealNameAuth: settings.PhoneAuthForceRealNameAuth,
           EmailVerificationEnabled: settings.EmailVerificationEnabled,
           RegisterEnabled: settings.RegisterEnabled,
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
@@ -127,6 +131,12 @@ const AUTH_SECTIONS = [
     titleKey: 'Custom OAuth',
     descriptionKey: 'Configure custom OAuth providers for user authentication',
     build: () => <CustomOAuthSection />,
+  },
+  {
+    id: 'phone-auth-provider',
+    titleKey: 'Phone Auth Provider Settings',
+    descriptionKey: 'Configure SMS service providers for phone number authentication',
+    build: () => <PhoneAuthProviderSection />,
   },
 ] as const
 

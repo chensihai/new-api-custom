@@ -56,6 +56,7 @@ func InitOptionMap() {
 	common.OptionMap["EmailDomainRestrictionEnabled"] = strconv.FormatBool(common.EmailDomainRestrictionEnabled)
 	common.OptionMap["EmailAliasRestrictionEnabled"] = strconv.FormatBool(common.EmailAliasRestrictionEnabled)
 	common.OptionMap["PhoneLoginEnabled"] = strconv.FormatBool(common.PhoneLoginEnabled)
+	common.OptionMap["PhoneRegisterEnabled"] = strconv.FormatBool(common.PhoneRegisterEnabled)
 	common.OptionMap["PhoneAuthForceRealNameAuth"] = strconv.FormatBool(common.PhoneAuthForceRealNameAuth)
 	common.OptionMap["EmailDomainWhitelist"] = strings.Join(common.EmailDomainWhitelist, ",")
 	common.OptionMap["SMTPServer"] = common.SMTPServer

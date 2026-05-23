@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { Mail, Shield, Send, Link2, Unlink } from 'lucide-react'
+import { Mail, Shield, Send, Link2, Unlink, Smartphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SiGithub, SiWechat, SiLinux } from 'react-icons/si'
 import { toast } from 'sonner'
@@ -36,6 +36,12 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { StatusBadge } from '@/components/status-badge'
 import { OAUTH_BIND_STORAGE_KEY } from '@/features/auth/constants'
 import {
+  getPhoneAuthEnabled,
+  getPhoneAuthStatus,
+} from '@/features/auth/phone-auth/api'
+import { usePhoneAuthEnabled } from '@/features/auth/phone-auth/hooks/use-phone-auth-enabled'
+import type { PhoneAuthStatusResponse } from '@/features/auth/phone-auth/types'
+import {
   getSelfOAuthBindings,
   unbindCustomOAuth,
   type CustomOAuthBinding,
@@ -44,6 +50,8 @@ import type { UserProfile, BindingItem } from '../../types'
 import { EmailBindDialog } from '../dialogs/email-bind-dialog'
 import { TelegramBindDialog } from '../dialogs/telegram-bind-dialog'
 import { WeChatBindDialog } from '../dialogs/wechat-bind-dialog'
+import { PhoneBindDialog } from '../dialogs/phone-bind-dialog'
+import { PhoneUnbindDialog } from '../dialogs/phone-unbind-dialog'
 
 // ============================================================================
 // Account Bindings Tab Component
@@ -54,7 +62,7 @@ interface AccountBindingsTabProps {
   onUpdate: () => void
 }
 
-type DialogKey = 'email' | 'wechat' | 'telegram'
+type DialogKey = 'email' | 'wechat' | 'telegram' | 'phone-bind' | 'phone-unbind'
 
 export function AccountBindingsTab({
   profile,
@@ -68,6 +76,20 @@ export function AccountBindingsTab({
     null
   )
   const [unbinding, setUnbinding] = useState(false)
+
+  const { data: phoneAuthData } = usePhoneAuthEnabled()
+  const phoneAuthEnabled = Boolean(phoneAuthData?.enabled)
+  const [phoneStatus, setPhoneStatus] = useState<PhoneAuthStatusResponse | null>(null)
+
+  useEffect(() => {
+    if (!phoneAuthEnabled) return
+    getPhoneAuthStatus()
+      .then(setPhoneStatus)
+      .catch(() => setPhoneStatus(null))
+  }, [phoneAuthEnabled, profile])
+
+  const phoneBound = Boolean(phoneStatus?.phone_bound)
+  const maskedPhone = phoneStatus?.masked_phone
 
   const customProviders = status?.custom_oauth_providers as
     | Array<{ id: string; name: string }>
@@ -159,6 +181,15 @@ export function AccountBindingsTab({
         isBound: Boolean(profile.email),
         isEnabled: true,
         onBind: () => dialogs.open('email'),
+      },
+      {
+        id: 'phone',
+        label: t('Phone Number'),
+        icon: Smartphone,
+        value: phoneBound ? maskedPhone : undefined,
+        isBound: phoneBound,
+        isEnabled: phoneAuthEnabled,
+        onBind: () => dialogs.open('phone-bind'),
       },
       {
         id: 'wechat',
@@ -257,7 +288,7 @@ export function AccountBindingsTab({
       },
     ].filter((binding) => binding.isEnabled)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, status, t])
+  }, [profile, status, t, phoneBound, maskedPhone, phoneAuthEnabled])
 
   if (!profile || loading) return null
 
@@ -294,14 +325,27 @@ export function AccountBindingsTab({
               size='sm'
               className='h-7 shrink-0 px-2.5 text-xs'
               onClick={binding.onBind}
-              disabled={binding.isBound && binding.id !== 'email'}
+              disabled={binding.isBound && binding.id !== 'email' && binding.id !== 'phone'}
             >
               {binding.isBound
                 ? binding.id === 'email'
                   ? t('Change')
-                  : t('Bound')
+                  : binding.id === 'phone'
+                    ? t('Change')
+                    : t('Bound')
                 : t('Bind')}
             </Button>
+            {binding.id === 'phone' && binding.isBound && (
+              <Button
+                variant='ghost'
+                size='sm'
+                className='text-destructive hover:text-destructive h-7 shrink-0 px-2.5 text-xs'
+                onClick={() => dialogs.open('phone-unbind')}
+              >
+                <Unlink className='mr-1 h-3 w-3' />
+                {t('Unbind')}
+              </Button>
+            )}
           </div>
         ))}
       </div>
@@ -420,6 +464,29 @@ export function AccountBindingsTab({
           onSuccess={onUpdate}
         />
       )}
+
+      {/* Phone Bind Dialog */}
+      {phoneAuthEnabled && (
+        <PhoneBindDialog
+          open={dialogs.isOpen('phone-bind')}
+          onOpenChange={(open) =>
+            open ? dialogs.open('phone-bind') : dialogs.close('phone-bind')
+          }
+          isBound={phoneBound}
+          maskedPhone={maskedPhone}
+          onSuccess={onUpdate}
+        />
+      )}
+
+      {/* Phone Unbind Dialog */}
+      <PhoneUnbindDialog
+        open={dialogs.isOpen('phone-unbind')}
+        onOpenChange={(open) =>
+          open ? dialogs.open('phone-unbind') : dialogs.close('phone-unbind')
+        }
+        maskedPhone={maskedPhone}
+        onSuccess={onUpdate}
+      />
     </>
   )
 }

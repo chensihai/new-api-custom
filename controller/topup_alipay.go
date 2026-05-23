@@ -262,7 +262,20 @@ func AlipayNotify(c *gin.Context) {
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 webhook 收到通知 trade_no=%s out_trade_no=%s trade_status=%s client_ip=%s", notification.TradeNo, notification.OutTradeNo, notification.TradeStatus, c.ClientIP()))
 
 	if notification.TradeStatus != alipay.TradeStatusSuccess && notification.TradeStatus != alipay.TradeStatusFinished {
-		logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 webhook 忽略事件 trade_no=%s trade_status=%s client_ip=%s", notification.TradeNo, notification.TradeStatus, c.ClientIP()))
+		if notification.TradeStatus == alipay.TradeStatusClosed {
+			tradeNo := notification.OutTradeNo
+			if tradeNo != "" {
+				LockOrder(tradeNo)
+				if err := model.MarkTopUpFailed(tradeNo, model.PaymentProviderAlipay, "支付宝交易关闭"); err != nil {
+					logger.LogError(c.Request.Context(), fmt.Sprintf("支付宝 webhook 标记失败失败 trade_no=%s error=%q", tradeNo, err.Error()))
+				} else {
+					logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 webhook 交易关闭 trade_no=%s client_ip=%s", tradeNo, c.ClientIP()))
+				}
+				UnlockOrder(tradeNo)
+			}
+		} else {
+			logger.LogInfo(c.Request.Context(), fmt.Sprintf("支付宝 webhook 忽略事件 trade_no=%s trade_status=%s client_ip=%s", notification.TradeNo, notification.TradeStatus, c.ClientIP()))
+		}
 		alipay.AckNotification(c.Writer)
 		return
 	}

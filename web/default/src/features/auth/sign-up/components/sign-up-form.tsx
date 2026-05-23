@@ -46,6 +46,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { register, wechatLoginByCode } from '@/features/auth/api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
@@ -54,6 +55,8 @@ import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import { getAffiliateCode } from '@/features/auth/lib/storage'
+import { PhoneRegisterForm } from '@/features/auth/phone-auth/components/phone-register-form'
+import { usePhoneAuthEnabled } from '@/features/auth/phone-auth/hooks/use-phone-auth-enabled'
 
 export function SignUpForm({
   className,
@@ -66,9 +69,16 @@ export function SignUpForm({
   const [wechatCode, setWeChatCode] = useState('')
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState<'password' | 'phone'>('password')
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
 
+  const { data: phoneAuthData } = usePhoneAuthEnabled()
+  const allowPhoneRegister = Boolean(phoneAuthData?.allow_phone_register)
+
   const { status } = useStatus()
+  const passwordRegisterEnabled = Boolean(
+    status?.password_register_enabled ?? status?.data?.password_register_enabled ?? true
+  )
   const {
     isTurnstileEnabled,
     turnstileSiteKey,
@@ -215,6 +225,42 @@ export function SignUpForm({
   }
 
   return (
+    <>
+      {allowPhoneRegister && passwordRegisterEnabled && (
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'password' | 'phone')}
+          className='w-full'
+        >
+          <TabsList className='mb-4 w-full'>
+            <TabsTrigger value='password' className='flex-1'>
+              {t('Password Registration')}
+            </TabsTrigger>
+            <TabsTrigger value='phone' className='flex-1'>
+              {t('Phone Registration')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+
+      {activeTab === 'phone' && allowPhoneRegister ? (
+        <PhoneRegisterForm
+          onSwitchToPassword={() => setActiveTab('password')}
+          agreedToLegal={agreedToLegal}
+          requiresLegalConsent={requiresLegalConsent}
+          className={className}
+        />
+      ) : !passwordRegisterEnabled && !allowPhoneRegister ? (
+        <p className='text-muted-foreground text-center text-sm'>
+          {t('Registration is currently not available.')}
+        </p>
+      ) : !passwordRegisterEnabled && allowPhoneRegister ? (
+        <PhoneRegisterForm
+          agreedToLegal={agreedToLegal}
+          requiresLegalConsent={requiresLegalConsent}
+          className={className}
+        />
+      ) : (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
@@ -427,5 +473,7 @@ export function SignUpForm({
         </Dialog>
       )}
     </Form>
+      )}
+    </>
   )
 }

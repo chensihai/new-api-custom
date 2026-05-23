@@ -113,6 +113,7 @@ var DebugEnabled bool
 var MemoryCacheEnabled bool
 
 var PhoneLoginEnabled = false
+var PhoneRegisterEnabled = false
 var PhoneAuthForceRealNameAuth = false
 
 var LogConsumeEnabled = true

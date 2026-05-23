@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Smartphone } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { formatQuota, formatTimestamp } from '@/lib/format'
@@ -116,6 +117,33 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       enableHiding: false,
       meta: { label: t('Username'), mobileTitle: true },
+    },
+    {
+      id: 'phone',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Phone')} />
+      ),
+      cell: ({ row }) => {
+        const hasPhone = Boolean(row.original.phone_number)
+        return (
+          <div className='flex items-center gap-1.5'>
+            <Smartphone className='text-muted-foreground h-3.5 w-3.5' />
+            {hasPhone ? (
+              <StatusBadge
+                label={t('Bound')}
+                variant='success'
+                copyable={false}
+              />
+            ) : (
+              <span className='text-muted-foreground text-xs'>
+                {t('Not bound')}
+              </span>
+            )}
+          </div>
+        )
+      },
+      enableSorting: false,
+      meta: { label: t('Phone'), mobileHidden: true },
     },
     {
       accessorKey: 'status',

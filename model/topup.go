@@ -22,6 +22,7 @@ type TopUp struct {
 	CreateTime      int64   `json:"create_time" gorm:"index:idx_status_create_time"`
 	CompleteTime    int64   `json:"complete_time" gorm:"index:idx_status_complete_time"`
 	Status          string  `json:"status" gorm:"index:idx_status_create_time;index:idx_status_complete_time"`
+	FailReason      string  `json:"fail_reason" gorm:"type:varchar(255)"`
 }
 
 const (
@@ -107,6 +108,35 @@ func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, ta
 		}
 
 		topUp.Status = targetStatus
+		return tx.Save(topUp).Error
+	})
+}
+
+func MarkTopUpFailed(tradeNo string, expectedPaymentProvider string, failReason string) error {
+	if tradeNo == "" {
+		return errors.New("未提供支付单号")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingPostgreSQL {
+		refCol = `"trade_no"`
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		topUp := &TopUp{}
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return nil
+		}
+		if expectedPaymentProvider != "" && topUp.PaymentProvider != expectedPaymentProvider {
+			return nil
+		}
+		if topUp.Status != common.TopUpStatusPending && topUp.Status != common.TopUpStatusExpired {
+			return nil
+		}
+
+		topUp.Status = common.TopUpStatusFailed
+		topUp.FailReason = failReason
+		topUp.CompleteTime = common.GetTimestamp()
 		return tx.Save(topUp).Error
 	})
 }

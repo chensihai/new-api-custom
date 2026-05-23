@@ -19,7 +19,7 @@ func GetPhoneAuthEnabled(c *gin.Context) {
 		"success": true,
 		"data": gin.H{
 			"enabled":              common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),
-			"allow_phone_register": common.PhoneLoginEnabled,
+			"allow_phone_register": common.PhoneRegisterEnabled,
 			"force_real_name_auth": common.PhoneAuthForceRealNameAuth,
 			"one_click_available":  common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),
 			"sms_available":        common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),

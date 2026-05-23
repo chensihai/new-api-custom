@@ -334,7 +334,24 @@ func WechatNotify(c *gin.Context) {
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 webhook 收到通知 transaction_id=%s out_trade_no=%s trade_state=%s client_ip=%s", transactionId, outTradeNo, tradeState, c.ClientIP()))
 
 	if tradeState != "SUCCESS" {
-		logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 webhook 忽略事件 transaction_id=%s trade_state=%s client_ip=%s", transactionId, tradeState, c.ClientIP()))
+		if tradeState == "CLOSED" || tradeState == "PAYERROR" {
+			tradeNo := outTradeNo
+			if tradeNo != "" {
+				failReason := "微信支付交易关闭"
+				if tradeState == "PAYERROR" {
+					failReason = "微信支付失败"
+				}
+				LockOrder(tradeNo)
+				if err := model.MarkTopUpFailed(tradeNo, model.PaymentProviderWechatPay, failReason); err != nil {
+					logger.LogError(c.Request.Context(), fmt.Sprintf("微信支付 webhook 标记失败失败 trade_no=%s error=%q", tradeNo, err.Error()))
+				} else {
+					logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 webhook 交易失败 trade_no=%s trade_state=%s client_ip=%s", tradeNo, tradeState, c.ClientIP()))
+				}
+				UnlockOrder(tradeNo)
+			}
+		} else {
+			logger.LogInfo(c.Request.Context(), fmt.Sprintf("微信支付 webhook 忽略事件 transaction_id=%s trade_state=%s client_ip=%s", transactionId, tradeState, c.ClientIP()))
+		}
 		c.JSON(http.StatusOK, gin.H{"code": "SUCCESS", "message": "OK"})
 		return
 	}

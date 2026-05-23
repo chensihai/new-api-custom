@@ -83,6 +83,7 @@ func InitEnv() {
 	MemoryCacheEnabled = os.Getenv("MEMORY_CACHE_ENABLED") == "true"
 	if os.Getenv("PHONE_AUTH_ENABLED") == "true" {
 		PhoneLoginEnabled = true
+		PhoneRegisterEnabled = true
 	}
 	IsMasterNode = os.Getenv("NODE_TYPE") != "slave"
 	NodeName = os.Getenv("NODE_NAME")
