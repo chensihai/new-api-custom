@@ -1,4 +1,8 @@
 {
+  "Alipay": "Alipay",
+  "Alipay subscription is not yet supported, please top up your balance first": "Alipay subscription is not yet supported, please top up your balance first",
+  "WeChat Pay": "WeChat Pay",
+  "WeChat Pay subscription is not yet supported, please top up your balance first": "WeChat Pay subscription is not yet supported, please top up your balance first",
   "translation": {
     " + 图片生成调用 {{symbol}}{{price}} / 1次 * {{ratioType}} {{ratio}}": " + Image generation call {{symbol}}{{price}} / 1 time * {{ratioType}} {{ratio}}",
     " + 文件搜索 {{count}}次 / 1K 次 * {{symbol}}{{price}} * {{ratioType}} {{ratio}}_one": " + File search {{count}} time / 1K times * {{symbol}}{{price}} * {{ratioType}} {{ratio}}",
@@ -3872,11 +3876,7 @@
     "Upload file": "Upload file",
     "Upload photo": "Upload photo"
   },
-  "Alipay": "Alipay",
-  "WeChat Pay": "WeChat Pay",
-  "Alipay subscription is not yet supported, please top up your balance first": "Alipay subscription is not yet supported, please top up your balance first",
-  "WeChat Pay subscription is not yet supported, please top up your balance first": "WeChat Pay subscription is not yet supported, please top up your balance first",
+  "二维码将在15分钟后过期": "QR code will expire in 15 minutes",
   "支付宝二维码": "Alipay QR Code",
-  "请使用支付宝扫描二维码完成支付": "Please scan the QR code with Alipay app to complete payment",
-  "二维码将在15分钟后过期": "QR code will expire in 15 minutes"
+  "请使用支付宝扫描二维码完成支付": "Please scan the QR code with Alipay app to complete payment"
 }

@@ -62,6 +62,8 @@ require (
 	gorm.io/gorm v1.25.2
 )
 
+require github.com/waffo-com/waffo-pancake-sdk-go v0.3.1
+
 require (
 	github.com/smartwalle/ncrypto v1.0.4 // indirect
 	github.com/smartwalle/ngx v1.1.0 // indirect
