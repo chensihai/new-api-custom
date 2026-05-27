@@ -289,8 +289,6 @@
     "参照生视频": "Tạo video tham chiếu",
     "操练场": "Sân chơi",
     "操练场和聊天功能": "Chức năng sân chơi và trò chuyện",
-    "游乐场": "Sân chơi",
-    "游乐场和聊天功能": "Chức năng sân chơi và trò chuyện",
     "操作": "Hành động",
     "操作成功完成！": "Thao tác hoàn tất thành công!",
     "操作管理员": "Quản trị viên thao tác",
@@ -4222,20 +4220,6 @@
     "Well-Known URL 必须以 http:// 或 https:// 开头": "Well-Known URL phải bắt đầu bằng http:// hoặc https://",
     "whsec_xxx 的 Webhook 签名密钥，敏感信息不显示": "Khóa chữ ký Webhook cho whsec_xxx, thông tin nhạy cảm không được hiển thị",
     "Worker地址": "Địa chỉ Worker",
-    "Worker密钥": "Khóa Worker",
-    "Ask anything": "Hỏi gì cũng được",
-    "Attach": "Đính kèm",
-    "Error": "Lỗi",
-    "Feature in development": "Tính năng đang phát triển",
-    "Go to Settings": "Đi đến Cài đặt",
-    "Model Price Not Configured": "Giá mô hình chưa được cấu hình",
-    "Search feature in development": "Tính năng tìm kiếm đang được phát triển",
-    "Search": "Tìm kiếm",
-    "Send": "Gửi",
-    "Stop": "Dừng lại",
-    "Take photo": "Chụp ảnh",
-    "Take screenshot": "Chụp màn hình",
-    "Upload file": "Tải tệp lên",
-    "Upload photo": "Tải ảnh lên"
+    "Worker密钥": "Khóa Worker"
   }
 }

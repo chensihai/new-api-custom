@@ -143,42 +143,7 @@ export default {
         'semi-border-radius-circle': 'var(--semi-border-radius-circle)',
         'semi-border-radius-full': 'var(--semi-border-radius-full)',
       },
-      colors: {
-        background: 'var(--semi-color-bg-0)',
-        foreground: 'var(--semi-color-text-0)',
-        card: {
-          DEFAULT: 'var(--semi-color-bg-1)',
-          foreground: 'var(--semi-color-text-0)',
-        },
-        popover: {
-          DEFAULT: 'var(--semi-color-bg-1)',
-          foreground: 'var(--semi-color-text-0)',
-        },
-        primary: {
-          DEFAULT: 'var(--semi-color-primary)',
-          foreground: 'var(--semi-color-white)',
-        },
-        secondary: {
-          DEFAULT: 'var(--semi-color-fill-1)',
-          foreground: 'var(--semi-color-text-0)',
-        },
-        muted: {
-          DEFAULT: 'var(--semi-color-fill-0)',
-          foreground: 'var(--semi-color-text-2)',
-        },
-        accent: {
-          DEFAULT: 'var(--semi-color-fill-1)',
-          foreground: 'var(--semi-color-text-0)',
-        },
-        destructive: {
-          DEFAULT: 'var(--semi-color-danger)',
-          foreground: 'var(--semi-color-white)',
-        },
-        border: 'var(--semi-color-border)',
-        input: 'var(--semi-color-border)',
-        ring: 'var(--semi-color-primary)',
-      },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 };
