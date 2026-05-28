@@ -238,7 +238,6 @@ const PageLayout = () => {
         </Layout>
       </Layout>
       <ToastContainer />
-      <Toaster />
     </Layout>
   );
 };
