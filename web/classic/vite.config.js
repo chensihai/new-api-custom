@@ -27,12 +27,13 @@ const { vitePluginSemi } = pkg;
 // https://vitejs.dev/config/
 export default defineConfig({
   resolve: {
-    alias: [
-      { find: '@/lib/api', replacement: path.resolve(__dirname, './src/adapters/playground/api-adapter.ts') },
-      { find: '@/stores/auth-store', replacement: path.resolve(__dirname, './src/adapters/playground/auth-store-adapter.ts') },
-      { find: '@douyinfe/semi-ui/dist/css/semi.css', replacement: path.resolve(__dirname, './node_modules/@douyinfe/semi-ui/dist/css/semi.css') },
-      { find: '@', replacement: path.resolve(__dirname, './src') },
-    ],
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@douyinfe/semi-ui/dist/css/semi.css': path.resolve(
+        __dirname,
+        './node_modules/@douyinfe/semi-ui/dist/css/semi.css'
+      ),
+    },
   },
   plugins: [
     codeInspectorPlugin({
@@ -60,7 +61,6 @@ export default defineConfig({
   ],
   optimizeDeps: {
     force: true,
-    include: ['@tanstack/react-query', 'sonner', 'nanoid', '@base-ui/react'],
     esbuildOptions: {
       loader: {
         '.js': 'jsx',
@@ -86,13 +86,6 @@ export default defineConfig({
             'i18next',
             'react-i18next',
             'i18next-browser-languagedetector',
-          ],
-          playground: [
-            '@tanstack/react-query',
-            'sonner',
-            'nanoid',
-            'sse.js',
-            '@base-ui/react',
           ],
         },
       },
