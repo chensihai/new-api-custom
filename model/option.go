@@ -311,6 +311,8 @@ func updateOptionMap(key string, value string) (err error) {
 			common.TurnstileCheckEnabled = boolValue
 		case "PhoneLoginEnabled":
 			common.PhoneLoginEnabled = boolValue
+		case "PhoneRegisterEnabled":
+			common.PhoneRegisterEnabled = boolValue
 		case "PhoneAuthForceRealNameAuth":
 			common.PhoneAuthForceRealNameAuth = boolValue
 		case "RegisterEnabled":
