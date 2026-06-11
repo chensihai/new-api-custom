@@ -53,14 +53,18 @@ export async function sendPhoneSmsCode(
 export async function phoneSmsLogin(
   payload: PhoneSmsLoginPayload
 ): Promise<ApiResponse> {
-  const res = await api.post<ApiResponse>('/api/phone-auth/sms/login', payload)
+  const res = await api.post<ApiResponse>('/api/phone-auth/sms/login', payload, {
+    skipBusinessError: true,
+  } as never)
   return res.data
 }
 
 export async function phoneRegister(
   payload: PhoneRegisterPayload
 ): Promise<ApiResponse> {
-  const res = await api.post<ApiResponse>('/api/phone-auth/register', payload)
+  const res = await api.post<ApiResponse>('/api/phone-auth/register', payload, {
+    skipBusinessError: true,
+  } as never)
   return res.data
 }
 
@@ -85,7 +89,9 @@ export async function rebindPhone(
   return res.data
 }
 
-export async function unbindPhone(): Promise<ApiResponse> {
-  const res = await api.post<ApiResponse>('/api/phone-auth/unbind')
+export async function unbindPhone(
+  payload: { phone: string; code: string }
+): Promise<ApiResponse> {
+  const res = await api.post<ApiResponse>('/api/phone-auth/unbind', payload)
   return res.data
 }

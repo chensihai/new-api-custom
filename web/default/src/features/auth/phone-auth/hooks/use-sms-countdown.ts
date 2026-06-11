@@ -58,6 +58,7 @@ export function useSmsCountdown(options?: UseSmsCountdownOptions) {
         toast.success(i18next.t('Verification code sent'))
         return true
       }
+      toast.error(res?.message || i18next.t('Failed to send verification code'))
       return false
     } catch (_error) {
       return false

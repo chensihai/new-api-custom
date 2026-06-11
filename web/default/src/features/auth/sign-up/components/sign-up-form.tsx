@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -72,7 +73,10 @@ export function SignUpForm({
   const [wechatCode, setWeChatCode] = useState('')
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<'password' | 'phone'>('password')
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as Record<string, string>
+  const initialTab = search?.tab === 'phone' ? 'phone' : 'password'
+  const [activeTab, setActiveTab] = useState<'password' | 'phone'>(initialTab)
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
 
   const { data: phoneAuthData } = usePhoneAuthEnabled()
@@ -244,7 +248,10 @@ export function SignUpForm({
       {allowPhoneRegister && passwordRegisterEnabled && (
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as 'password' | 'phone')}
+          onValueChange={(v) => {
+            setActiveTab(v as 'password' | 'phone')
+            navigate({ search: { tab: v } as Record<string, string> })
+          }}
           className='w-full'
         >
           <TabsList className='mb-4 w-full'>

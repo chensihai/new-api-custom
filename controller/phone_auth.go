@@ -1,13 +1,16 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/provider"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
@@ -15,14 +18,31 @@ import (
 
 func GetPhoneAuthEnabled(c *gin.Context) {
 	settings := system_setting.GetPhoneAuthSettings()
+	hasProvider := settings.HasAnyProviderEnabled()
+	allowPhoneRegister := common.PhoneRegisterEnabled && common.PhoneLoginEnabled && hasProvider
+
+	var configHint string
+	if !allowPhoneRegister {
+		switch {
+		case !common.PhoneRegisterEnabled:
+			configHint = "phone_register_not_enabled"
+		case !common.PhoneLoginEnabled:
+			configHint = "phone_login_not_enabled"
+		case !hasProvider:
+			configHint = "no_sms_provider_configured"
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"enabled":              common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),
-			"allow_phone_register": common.PhoneRegisterEnabled,
+			"enabled":              common.PhoneLoginEnabled && hasProvider,
+			"phone_login_enabled":  common.PhoneLoginEnabled,
+			"allow_phone_register": allowPhoneRegister,
 			"force_real_name_auth": common.PhoneAuthForceRealNameAuth,
-			"one_click_available":  common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),
-			"sms_available":        common.PhoneLoginEnabled && settings.HasAnyProviderEnabled(),
+			"one_click_available":  common.PhoneLoginEnabled && hasProvider,
+			"sms_available":        common.PhoneLoginEnabled && hasProvider,
+			"config_hint":          configHint,
 		},
 	})
 }
@@ -39,13 +59,14 @@ func SendPhoneVerifyCode(c *gin.Context) {
 		}
 	}
 
-	if !common.IsValidChinesePhone(phone) {
+	if !common.IsValidPhone(phone) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "invalid phone number format",
 		})
 		return
 	}
+	phone = common.NormalizePhone(phone)
 
 	clientIP := c.ClientIP()
 	if err := service.SendVerifyCode(phone, "login", clientIP); err != nil {
@@ -64,8 +85,9 @@ func SendPhoneVerifyCode(c *gin.Context) {
 
 func PhoneSmsLogin(c *gin.Context) {
 	var req struct {
-		Phone string `json:"phone"`
-		Code  string `json:"code"`
+		Phone          string `json:"phone"`
+		Code           string `json:"code"`
+		TurnstileToken string `json:"turnstile_token"`
 	}
 	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -75,11 +97,26 @@ func PhoneSmsLogin(c *gin.Context) {
 		return
 	}
 
+	if !common.IsValidPhone(req.Phone) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid phone number format",
+		})
+		return
+	}
+	req.Phone = common.NormalizePhone(req.Phone)
+
 	user, err := service.PhoneLoginByVerifyCode(req.Phone, req.Code)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
+		errMsg := err.Error()
+		common.SysLog(fmt.Sprintf("phone sms login failed: phone=%s, error=%s", req.Phone, errMsg))
+		status := http.StatusOK
+		if strings.Contains(errMsg, "disabled") {
+			status = http.StatusForbidden
+		}
+		c.JSON(status, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": errMsg,
 		})
 		return
 	}
@@ -89,10 +126,12 @@ func PhoneSmsLogin(c *gin.Context) {
 
 func PhoneRegister(c *gin.Context) {
 	var req struct {
-		Phone    string `json:"phone"`
-		Code     string `json:"code"`
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Phone          string `json:"phone"`
+		Code           string `json:"code"`
+		Username       string `json:"username"`
+		Password       string `json:"password"`
+		TurnstileToken string `json:"turnstile_token"`
+		AffCode        string `json:"aff_code"`
 	}
 	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -102,19 +141,26 @@ func PhoneRegister(c *gin.Context) {
 		return
 	}
 
-	if !common.IsValidChinesePhone(req.Phone) {
+	if !common.IsValidPhone(req.Phone) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "invalid phone number format",
 		})
 		return
 	}
+	req.Phone = common.NormalizePhone(req.Phone)
 
-	user, err := service.PhoneRegister(req.Phone, req.Code, req.Username, req.Password)
+	user, err := service.PhoneRegister(req.Phone, req.Code, req.Username, req.Password, req.AffCode)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		errMsg := err.Error()
+		common.SysLog(fmt.Sprintf("phone register failed: phone=%s, username=%s, error=%s", req.Phone, req.Username, errMsg))
+		status := http.StatusOK
+		if strings.Contains(errMsg, "disabled") {
+			status = http.StatusForbidden
+		}
+		c.JSON(status, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": errMsg,
 		})
 		return
 	}
@@ -137,9 +183,10 @@ func PhoneOneClickLogin(c *gin.Context) {
 
 	user, err := service.PhoneLoginByToken(req.Provider, req.Token)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
+		errMsg := err.Error()
+		c.JSON(http.StatusOK, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": errMsg,
 		})
 		return
 	}
@@ -194,8 +241,23 @@ func BindPhone(c *gin.Context) {
 		return
 	}
 
-	if err := service.BindPhone(userId, req.Phone, req.Code); err != nil {
+	if !common.IsValidPhone(req.Phone) {
 		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid phone number format",
+		})
+		return
+	}
+	req.Phone = common.NormalizePhone(req.Phone)
+
+	if err := service.BindPhone(userId, req.Phone, req.Code); err != nil {
+		errMsg := err.Error()
+		common.SysLog(fmt.Sprintf("bind phone failed: userId=%d, phone=%s, error=%s", userId, req.Phone, errMsg))
+		status := http.StatusBadRequest
+		if strings.Contains(errMsg, "already bound") {
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{
 			"success": false,
 			"message": err.Error(),
 		})
@@ -230,10 +292,25 @@ func RebindPhone(c *gin.Context) {
 		return
 	}
 
-	if err := service.RebindPhone(userId, req.NewPhone, req.Code); err != nil {
+	if !common.IsValidPhone(req.NewPhone) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"message": err.Error(),
+			"message": "invalid phone number format",
+		})
+		return
+	}
+	req.NewPhone = common.NormalizePhone(req.NewPhone)
+
+	if err := service.RebindPhone(userId, req.NewPhone, req.Code); err != nil {
+		errMsg := err.Error()
+		common.SysLog(fmt.Sprintf("rebind phone failed: userId=%d, newPhone=%s, error=%s", userId, req.NewPhone, errMsg))
+		status := http.StatusBadRequest
+		if strings.Contains(errMsg, "already bound") {
+			status = http.StatusConflict
+		}
+		c.JSON(status, gin.H{
+			"success": false,
+			"message": errMsg,
 		})
 		return
 	}
@@ -254,8 +331,41 @@ func UnbindPhone(c *gin.Context) {
 		return
 	}
 
-	if err := service.UnbindPhone(userId); err != nil {
+	var req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid request",
+		})
+		return
+	}
+
+	if req.Phone == "" || req.Code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "phone and verification code are required",
+		})
+		return
+	}
+
+	if !common.IsValidPhone(req.Phone) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid phone number format",
+		})
+		return
+	}
+	req.Phone = common.NormalizePhone(req.Phone)
+
+	if err := service.UnbindPhoneWithVerify(userId, req.Phone, req.Code); err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "not authenticated") {
+			status = http.StatusUnauthorized
+		}
+		c.JSON(status, gin.H{
 			"success": false,
 			"message": err.Error(),
 		})
@@ -316,6 +426,28 @@ func UpdatePhoneAuthProviders(c *gin.Context) {
 	*currentSettings = req
 	currentSettings.ApplyToCommon()
 
+	configMap, err := config.ConfigToMap(currentSettings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "failed to serialize settings",
+		})
+		return
+	}
+
+	values := make(map[string]string, len(configMap))
+	for k, v := range configMap {
+		values["phone_auth."+k] = v
+	}
+
+	if err := model.UpdateOptionsBulk(values); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "failed to save settings",
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "phone auth settings updated",
@@ -344,76 +476,15 @@ func AdminGetUserPhone(c *gin.Context) {
 
 	maskedPhone := ""
 	if user.PhoneNumber != "" {
-		decrypted, err := common.DecryptPhone(user.PhoneNumber)
-		if err == nil {
-			maskedPhone = common.MaskPhone(decrypted)
-		}
+		maskedPhone = common.MaskPhone(user.PhoneNumber)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"masked_phone":         maskedPhone,
-			"phone_auth_verified":  user.PhoneAuthVerified,
-			"phone_auth_provider":  user.PhoneAuthProvider,
+			"masked_phone":        maskedPhone,
+			"phone_auth_provider": user.PhoneAuthProvider,
 		},
-	})
-}
-
-func AdminSetUserPhoneVerified(c *gin.Context) {
-	userIdStr := c.Param("id")
-	userId, err := strconv.Atoi(userIdStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "invalid user id",
-		})
-		return
-	}
-
-	var req struct {
-		Verified bool `json:"verified"`
-	}
-	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "invalid request",
-		})
-		return
-	}
-
-	user, err := model.GetUserById(userId, true)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "user not found",
-		})
-		return
-	}
-
-	if req.Verified {
-		now := common.GetTimestamp()
-		err = model.DB.Model(user).Updates(map[string]interface{}{
-			"phone_auth_verified": true,
-			"phone_auth_time":     &now,
-		}).Error
-	} else {
-		err = model.DB.Model(user).Updates(map[string]interface{}{
-			"phone_auth_verified": false,
-			"phone_auth_time":     nil,
-		}).Error
-	}
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success": false,
-			"message": "failed to update user",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "phone auth verified status updated",
 	})
 }
 

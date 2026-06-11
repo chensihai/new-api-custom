@@ -7,15 +7,39 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 )
 
 var chinesePhoneRegex = regexp.MustCompile(`^1[3-9]\d{9}$`)
 
 func IsValidChinesePhone(phone string) bool {
 	return chinesePhoneRegex.MatchString(phone)
+}
+
+func NormalizePhone(phone string) string {
+	if strings.HasPrefix(phone, "+86") {
+		rest := phone[3:]
+		if IsValidChinesePhone(rest) {
+			return rest
+		}
+		return phone
+	}
+	if strings.HasPrefix(phone, "86") && len(phone) == 13 {
+		rest := phone[2:]
+		if IsValidChinesePhone(rest) {
+			return rest
+		}
+	}
+	return phone
+}
+
+func IsValidPhone(phone string) bool {
+	normalized := NormalizePhone(phone)
+	return IsValidChinesePhone(normalized)
 }
 
 func MaskPhone(phone string) string {
@@ -32,7 +56,7 @@ func IsEmailInput(input string) bool {
 }
 
 func IsPhoneLoginInput(input string) bool {
-	return IsValidChinesePhone(input)
+	return IsValidPhone(input)
 }
 
 func IdentifyLoginInput(input string) string {
@@ -49,6 +73,15 @@ func derivePhoneKey() []byte {
 	h := hmac.New(sha256.New, []byte(CryptoSecret))
 	h.Write([]byte("phone-encryption-key"))
 	return h.Sum(nil)
+}
+
+func HashPhone(phone string) string {
+	if phone == "" {
+		return ""
+	}
+	h := hmac.New(sha256.New, []byte(CryptoSecret))
+	h.Write([]byte("phone-cache-key:" + phone))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func deriveKeyFromSecret(secret, purpose string, keyLen int) []byte {

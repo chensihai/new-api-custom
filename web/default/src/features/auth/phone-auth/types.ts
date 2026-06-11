@@ -18,15 +18,18 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export interface PhoneAuthEnabledResponse {
   enabled: boolean
+  phone_login_enabled: boolean
   sms_available: boolean
   one_click_available: boolean
   allow_phone_register: boolean
   force_real_name_auth: boolean
+  config_hint?: string
 }
 
 export interface PhoneAuthStatusResponse {
   phone_bound: boolean
   masked_phone?: string
+  phone_number?: string
 }
 
 export interface PhoneSmsSendPayload {
@@ -37,6 +40,7 @@ export interface PhoneSmsSendPayload {
 export interface PhoneSmsLoginPayload {
   phone: string
   code: string
+  turnstile_token?: string
 }
 
 export interface PhoneRegisterPayload {
@@ -44,6 +48,8 @@ export interface PhoneRegisterPayload {
   code: string
   username: string
   password?: string
+  turnstile_token?: string
+  aff_code?: string
 }
 
 export interface PhoneOneClickLoginPayload {

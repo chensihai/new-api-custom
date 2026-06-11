@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	phoneVerifyCodePrefix  = "phone_auth:verify:"
-	phoneRateLimitPrefix   = "phone_auth:rate:"
-	phoneDailyLimitPrefix  = "phone_auth:daily:"
+	phoneVerifyCodePrefix   = "phone_auth:verify:"
+	phoneRateLimitPrefix    = "phone_auth:rate:"
+	phoneDailyLimitPrefix   = "phone_auth:daily:"
 	phoneIPDailyLimitPrefix = "phone_auth:ip:daily:"
-	phoneErrorCountPrefix  = "phone_auth:errors:"
+	phoneErrorCountPrefix   = "phone_auth:errors:"
 )
 
 var (
@@ -42,22 +42,20 @@ func GenerateVerifyCode() string {
 func SendVerifyCode(phone string, purpose string, clientIP string) error {
 	settings := system_setting.GetPhoneAuthSettings()
 
-	if !common.IsValidChinesePhone(phone) {
+	if !common.IsValidPhone(phone) {
 		return fmt.Errorf("invalid phone number format")
 	}
+	phone = common.NormalizePhone(phone)
 
-	encryptedPhone, err := common.EncryptPhone(phone)
-	if err != nil {
-		return fmt.Errorf("failed to encrypt phone number")
-	}
+	phoneHash := common.HashPhone(phone)
 
-	rateKey := phoneRateLimitPrefix + encryptedPhone
+	rateKey := phoneRateLimitPrefix + phoneHash
 	if err := checkRateLimit(rateKey, 60*time.Second); err != nil {
 		return fmt.Errorf("verification code sent too frequently, please try again in 60 seconds")
 	}
 
 	today := time.Now().Format("2006-01-02")
-	dailyKey := phoneDailyLimitPrefix + encryptedPhone + ":" + today
+	dailyKey := phoneDailyLimitPrefix + phoneHash + ":" + today
 	dailyLimit := settings.SmsDailyPhoneLimit
 	if dailyLimit <= 0 {
 		dailyLimit = 10
@@ -95,7 +93,7 @@ func SendVerifyCode(phone string, purpose string, clientIP string) error {
 		expireSeconds = 300
 	}
 
-	codeKey := phoneVerifyCodePrefix + encryptedPhone
+	codeKey := phoneVerifyCodePrefix + phoneHash
 	if err := setCache(codeKey, code, time.Duration(expireSeconds)*time.Second); err != nil {
 		return fmt.Errorf("failed to store verification code")
 	}
@@ -113,10 +111,7 @@ type VerifyCodeResult struct {
 }
 
 func VerifyCode(phone string, code string) VerifyCodeResult {
-	encryptedPhone, err := common.EncryptPhone(phone)
-	if err != nil {
-		return VerifyCodeResult{Success: false, Error: "failed to encrypt phone number"}
-	}
+	phoneHash := common.HashPhone(phone)
 
 	settings := system_setting.GetPhoneAuthSettings()
 	maxErrors := settings.SmsMaxErrorCount
@@ -124,14 +119,14 @@ func VerifyCode(phone string, code string) VerifyCodeResult {
 		maxErrors = 5
 	}
 
-	codeKey := phoneVerifyCodePrefix + encryptedPhone
+	codeKey := phoneVerifyCodePrefix + phoneHash
 	storedCode, err := getCache(codeKey)
 	if err != nil || storedCode == "" {
 		return VerifyCodeResult{Success: false, Error: "verification code expired or not found"}
 	}
 
 	if storedCode != code {
-		errorKey := phoneErrorCountPrefix + encryptedPhone
+		errorKey := phoneErrorCountPrefix + phoneHash
 		errorCountStr, _ := getCache(errorKey)
 		errorCount := 0
 		if errorCountStr != "" {
@@ -150,7 +145,7 @@ func VerifyCode(phone string, code string) VerifyCodeResult {
 	}
 
 	deleteCache(codeKey)
-	deleteCache(phoneErrorCountPrefix + encryptedPhone)
+	deleteCache(phoneErrorCountPrefix + phoneHash)
 	return VerifyCodeResult{Success: true}
 }
 

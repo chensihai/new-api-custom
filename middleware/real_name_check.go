@@ -33,8 +33,8 @@ func RealNameCheck() gin.HandlerFunc {
 			return
 		}
 
-		verified := model.GetUserPhoneAuthVerified(id)
-		if verified {
+		phoneBound := model.IsUserPhoneBound(id)
+		if phoneBound {
 			c.Next()
 			return
 		}

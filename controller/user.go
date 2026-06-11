@@ -56,7 +56,8 @@ func Login(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgUserPasswordLoginDisabled)
 			return
 		}
-		user, err := service.PhoneLoginByPassword(username, password)
+		normalizedPhone := common.NormalizePhone(username)
+		user, err := service.PhoneLoginByPassword(normalizedPhone, password)
 		if err != nil {
 			common.ApiErrorI18n(c, i18n.MsgUserUsernameOrPasswordError)
 			return
@@ -277,6 +278,8 @@ func GetAllUsers(c *gin.Context) {
 		return
 	}
 
+	maskUserPhones(users)
+
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
 
@@ -308,8 +311,20 @@ func SearchUsers(c *gin.Context) {
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
+
+	maskUserPhones(users)
+
 	common.ApiSuccess(c, pageInfo)
 	return
+}
+
+func maskUserPhones(users []*model.User) {
+	for _, u := range users {
+		if u.PhoneNumber == "" {
+			continue
+		}
+		u.PhoneNumber = common.MaskPhone(u.PhoneNumber)
+	}
 }
 
 func canManageTargetRole(myRole int, targetRole int) bool {
@@ -332,10 +347,47 @@ func GetUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
 		return
 	}
+	maskedPhone := ""
+	if user.PhoneNumber != "" {
+		maskedPhone = common.MaskPhone(user.PhoneNumber)
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    user,
+		"data": map[string]interface{}{
+			"id":                  user.Id,
+			"username":            user.Username,
+			"display_name":        user.DisplayName,
+			"role":                user.Role,
+			"status":              user.Status,
+			"email":               user.Email,
+			"github_id":           user.GitHubId,
+			"discord_id":          user.DiscordId,
+			"oidc_id":             user.OidcId,
+			"wechat_id":           user.WeChatId,
+			"telegram_id":         user.TelegramId,
+			"linux_do_id":         user.LinuxDOId,
+			"group":               user.Group,
+			"quota":               user.Quota,
+			"used_quota":          user.UsedQuota,
+			"request_count":       user.RequestCount,
+			"aff_code":            user.AffCode,
+			"aff_count":           user.AffCount,
+			"aff_quota":           user.AffQuota,
+			"aff_history_quota":   user.AffHistoryQuota,
+			"inviter_id":          user.InviterId,
+			"phone_number":        maskedPhone,
+			"phone_auth_time":     user.PhoneAuthTime,
+			"phone_auth_provider": user.PhoneAuthProvider,
+			"rebate_rate":         user.RebateRate,
+			"rebate_cap":          user.RebateCap,
+			"created_at":          user.CreatedAt,
+			"last_login_at":       user.LastLoginAt,
+			"setting":             user.Setting,
+			"stripe_customer":     user.StripeCustomer,
+			"remark":              user.Remark,
+			"masked_phone":        maskedPhone,
+		},
 	})
 	return
 }
@@ -470,8 +522,20 @@ func GetSelf(c *gin.Context) {
 		"linux_do_id":       user.LinuxDOId,
 		"setting":           user.Setting,
 		"stripe_customer":   user.StripeCustomer,
-		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
-		"permissions":       permissions,                // 新增权限字段
+		"sidebar_modules":   userSetting.SidebarModules,
+		"permissions":       permissions,
+		"phone_number": func() string {
+			if user.PhoneNumber == "" {
+				return ""
+			}
+			return common.MaskPhone(user.PhoneNumber)
+		}(),
+		"masked_phone": func() string {
+			if user.PhoneNumber == "" {
+				return ""
+			}
+			return common.MaskPhone(user.PhoneNumber)
+		}(),
 	}
 
 	c.JSON(http.StatusOK, gin.H{

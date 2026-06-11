@@ -718,6 +718,7 @@ const RegisterForm = () => {
               ) : (
               <PhoneRegisterForm
                 agreedToTerms={agreedToTerms}
+                setAgreedToTerms={setAgreedToTerms}
                 hasUserAgreement={hasUserAgreement}
                 hasPrivacyPolicy={hasPrivacyPolicy}
               />

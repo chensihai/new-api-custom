@@ -20,31 +20,37 @@ import { useEffect, useState } from 'react'
 import { getPhoneAuthEnabled } from '../api'
 import type { PhoneAuthEnabledResponse } from '../types'
 
+const CACHE_TTL_MS = 5 * 60 * 1000
+
 let cachedResult: PhoneAuthEnabledResponse | null = null
-let cachedPromise: Promise<PhoneAuthEnabledResponse> | null = null
+let cachedTimestamp: number = 0
+
+function isCacheValid(): boolean {
+  return cachedResult !== null && (Date.now() - cachedTimestamp) < CACHE_TTL_MS
+}
 
 export function usePhoneAuthEnabled() {
-  const [data, setData] = useState<PhoneAuthEnabledResponse | null>(cachedResult)
-  const [isLoading, setIsLoading] = useState(!cachedResult)
+  const [data, setData] = useState<PhoneAuthEnabledResponse | null>(
+    isCacheValid() ? cachedResult : null,
+  )
+  const [isLoading, setIsLoading] = useState(!isCacheValid())
 
   useEffect(() => {
-    if (cachedResult) {
+    if (isCacheValid()) {
       setData(cachedResult)
       setIsLoading(false)
       return
     }
 
-    if (!cachedPromise) {
-      cachedPromise = getPhoneAuthEnabled()
-    }
-
-    cachedPromise
+    setIsLoading(true)
+    getPhoneAuthEnabled()
       .then((res) => {
         cachedResult = res
+        cachedTimestamp = Date.now()
         setData(res)
       })
       .catch(() => {
-        setData(null)
+        // Keep previous data on failure to avoid flickering
       })
       .finally(() => {
         setIsLoading(false)

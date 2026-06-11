@@ -35,12 +35,7 @@ import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { StatusBadge } from '@/components/status-badge'
 import { OAUTH_BIND_STORAGE_KEY } from '@/features/auth/constants'
-import {
-  getPhoneAuthEnabled,
-  getPhoneAuthStatus,
-} from '@/features/auth/phone-auth/api'
 import { usePhoneAuthEnabled } from '@/features/auth/phone-auth/hooks/use-phone-auth-enabled'
-import type { PhoneAuthStatusResponse } from '@/features/auth/phone-auth/types'
 import {
   getSelfOAuthBindings,
   unbindCustomOAuth,
@@ -77,19 +72,13 @@ export function AccountBindingsTab({
   )
   const [unbinding, setUnbinding] = useState(false)
 
-  const { data: phoneAuthData } = usePhoneAuthEnabled()
+  const { data: phoneAuthData, isLoading: isPhoneAuthEnabledLoading } = usePhoneAuthEnabled()
   const phoneAuthEnabled = Boolean(phoneAuthData?.enabled)
-  const [phoneStatus, setPhoneStatus] = useState<PhoneAuthStatusResponse | null>(null)
 
-  useEffect(() => {
-    if (!phoneAuthEnabled) return
-    getPhoneAuthStatus()
-      .then(setPhoneStatus)
-      .catch(() => setPhoneStatus(null))
-  }, [phoneAuthEnabled, profile])
+  const phoneBound = Boolean(profile?.phone_number)
+  const maskedPhone = profile?.masked_phone
 
-  const phoneBound = Boolean(phoneStatus?.phone_bound)
-  const maskedPhone = phoneStatus?.masked_phone
+  const isPhoneBindingEnabled = isPhoneAuthEnabledLoading || phoneAuthEnabled
 
   const customProviders = status?.custom_oauth_providers as
     | Array<{ id: string; name: string }>
@@ -188,7 +177,7 @@ export function AccountBindingsTab({
         icon: Smartphone,
         value: phoneBound ? maskedPhone : undefined,
         isBound: phoneBound,
-        isEnabled: phoneAuthEnabled,
+        isEnabled: isPhoneBindingEnabled,
         onBind: () => dialogs.open('phone-bind'),
       },
       {
@@ -288,7 +277,7 @@ export function AccountBindingsTab({
       },
     ].filter((binding) => binding.isEnabled)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile, status, t, phoneBound, maskedPhone, phoneAuthEnabled])
+  }, [profile, status, t, phoneBound, maskedPhone, phoneAuthEnabled, isPhoneAuthEnabledLoading])
 
   if (!profile || loading) return null
 
@@ -466,7 +455,7 @@ export function AccountBindingsTab({
       )}
 
       {/* Phone Bind Dialog */}
-      {phoneAuthEnabled && (
+      {isPhoneBindingEnabled && (
         <PhoneBindDialog
           open={dialogs.isOpen('phone-bind')}
           onOpenChange={(open) =>
@@ -474,7 +463,7 @@ export function AccountBindingsTab({
           }
           isBound={phoneBound}
           maskedPhone={maskedPhone}
-          onSuccess={onUpdate}
+            onSuccess={onUpdate}
         />
       )}
 

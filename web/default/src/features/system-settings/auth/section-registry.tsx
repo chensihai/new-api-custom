@@ -36,7 +36,6 @@ const AUTH_SECTIONS = [
           PasswordRegisterEnabled: settings.PasswordRegisterEnabled,
           PhoneLoginEnabled: settings.PhoneLoginEnabled,
           PhoneRegisterEnabled: settings.PhoneRegisterEnabled,
-          PhoneAuthForceRealNameAuth: settings.PhoneAuthForceRealNameAuth,
           EmailVerificationEnabled: settings.EmailVerificationEnabled,
           RegisterEnabled: settings.RegisterEnabled,
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,

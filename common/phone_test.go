@@ -53,8 +53,59 @@ func TestIsPhoneLoginInput(t *testing.T) {
 	if !IsPhoneLoginInput("13800138000") {
 		t.Error("IsPhoneLoginInput should return true for valid phone")
 	}
+	if !IsPhoneLoginInput("+8613800138000") {
+		t.Error("IsPhoneLoginInput should return true for +86 prefixed phone")
+	}
+	if !IsPhoneLoginInput("8613800138000") {
+		t.Error("IsPhoneLoginInput should return true for 86 prefixed phone")
+	}
 	if IsPhoneLoginInput("username") {
 		t.Error("IsPhoneLoginInput should return false for username")
+	}
+}
+
+func TestNormalizePhone(t *testing.T) {
+	tests := []struct {
+		phone  string
+		expect string
+	}{
+		{"+8613800138000", "13800138000"},
+		{"8613800138000", "13800138000"},
+		{"13800138000", "13800138000"},
+		{"+85212345678", "+85212345678"},
+		{"+8612345", "+8612345"},
+		{"8612345", "8612345"},
+		{"", ""},
+		{"+86abc", "+86abc"},
+		{"8613800138000", "13800138000"},
+		{"861380013800", "861380013800"},
+	}
+	for _, tt := range tests {
+		result := NormalizePhone(tt.phone)
+		if result != tt.expect {
+			t.Errorf("NormalizePhone(%q) = %q, want %q", tt.phone, result, tt.expect)
+		}
+	}
+}
+
+func TestIsValidPhone(t *testing.T) {
+	tests := []struct {
+		phone  string
+		expect bool
+	}{
+		{"+8613800138000", true},
+		{"8613800138000", true},
+		{"13800138000", true},
+		{"+85212345678", false},
+		{"12345", false},
+		{"", false},
+		{"+8612345", false},
+	}
+	for _, tt := range tests {
+		result := IsValidPhone(tt.phone)
+		if result != tt.expect {
+			t.Errorf("IsValidPhone(%q) = %v, want %v", tt.phone, result, tt.expect)
+		}
 	}
 }
 
@@ -88,6 +139,7 @@ func TestIdentifyLoginInput(t *testing.T) {
 	}{
 		{"13800138000", "phone"},
 		{"15012345678", "phone"},
+		{"+8613800138000", "phone"},
 		{"user@example.com", "email"},
 		{"test@gmail.com", "email"},
 		{"myusername", "username"},
@@ -175,5 +227,29 @@ func TestDecryptPhoneInvalidInput(t *testing.T) {
 	_, err = DecryptPhone("aQ==")
 	if err == nil {
 		t.Error("DecryptPhone should return error for too-short ciphertext")
+	}
+}
+
+func TestHashPhone(t *testing.T) {
+	originalCryptoSecret := CryptoSecret
+	CryptoSecret = "test-secret-key-for-unit-test"
+	defer func() { CryptoSecret = originalCryptoSecret }()
+
+	h1 := HashPhone("13800138000")
+	h2 := HashPhone("13800138000")
+	if h1 != h2 {
+		t.Error("HashPhone should be deterministic for same input")
+	}
+	if h1 == "" {
+		t.Error("HashPhone should not return empty for non-empty input")
+	}
+
+	h3 := HashPhone("15012345678")
+	if h1 == h3 {
+		t.Error("HashPhone should produce different hashes for different phones")
+	}
+
+	if HashPhone("") != "" {
+		t.Error("HashPhone should return empty for empty input")
 	}
 }

@@ -96,8 +96,12 @@ export function PhoneBindDialog({
   }
 
   const handleBind = async () => {
-    if (!phone || !code) {
-      toast.error(t('Please enter phone number and verification code'))
+    if (!phone || phone.length !== PHONE_MAX_LENGTH) {
+      toast.error(t('Please enter a valid phone number'))
+      return
+    }
+    if (!code) {
+      toast.error(t('Please enter verification code'))
       return
     }
 
@@ -164,7 +168,7 @@ export function PhoneBindDialog({
               inputMode='numeric'
               value={phone}
               onChange={(e) => setPhone(filterDigits(e.target.value, PHONE_MAX_LENGTH))}
-              placeholder={t('Enter your phone number')}
+              placeholder={t('Enter 11-digit phone number')}
               disabled={loading}
               maxLength={PHONE_MAX_LENGTH}
             />

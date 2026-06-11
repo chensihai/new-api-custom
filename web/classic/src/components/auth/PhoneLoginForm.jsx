@@ -21,11 +21,11 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from '../../context/User';
 import { API, showError, showSuccess, setUserData, updateAPI } from '../../helpers';
-import { Button, Form, Input, InputGroup } from '@douyinfe/semi-ui';
+import { Button, Checkbox, Form, Input, InputGroup, Typography } from '@douyinfe/semi-ui';
 import { IconPhone, IconKey } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 
-const PhoneLoginForm = ({ agreedToTerms, hasUserAgreement, hasPrivacyPolicy }) => {
+const PhoneLoginForm = ({ agreedToTerms, setAgreedToTerms, hasUserAgreement, hasPrivacyPolicy }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [userState, userDispatch] = useContext(UserContext);
@@ -134,7 +134,7 @@ const PhoneLoginForm = ({ agreedToTerms, hasUserAgreement, hasPrivacyPolicy }) =
       <Form.Input
         field='phone'
         label={t('手机号')}
-        placeholder={t('请输入手机号')}
+        placeholder={t('请输入11位手机号')}
         value={phone}
         onChange={handlePhoneChange}
         prefix={<IconPhone />}
@@ -167,6 +167,34 @@ const PhoneLoginForm = ({ agreedToTerms, hasUserAgreement, hasPrivacyPolicy }) =
           </Button>
         </InputGroup>
       </div>
+
+      {(hasUserAgreement || hasPrivacyPolicy) && (
+        <div className='pt-2'>
+          <Checkbox
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms && setAgreedToTerms(e.target.checked)}
+          >
+            <Typography.Text size='small' className='text-gray-600'>
+              {t('我已阅读并同意')}
+              {hasUserAgreement && (
+                <>
+                  <a href='/user-agreement' target='_blank' rel='noopener noreferrer' className='text-blue-600 hover:text-blue-800 mx-1'>
+                    {t('用户协议')}
+                  </a>
+                </>
+              )}
+              {hasUserAgreement && hasPrivacyPolicy && t('和')}
+              {hasPrivacyPolicy && (
+                <>
+                  <a href='/privacy-policy' target='_blank' rel='noopener noreferrer' className='text-blue-600 hover:text-blue-800 mx-1'>
+                    {t('隐私政策')}
+                  </a>
+                </>
+              )}
+            </Typography.Text>
+          </Checkbox>
+        </div>
+      )}
 
       <Button
         theme='solid'

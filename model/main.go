@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -248,6 +249,16 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
+	// Migrate phone_number and phone_auth_provider from varchar(32) to varchar(255)
+	migratePhoneNumberColumnLength()
+	// Migrate phone_number index to unique index
+	migratePhoneNumberUniqueIndex()
+	// Migrate phone_number to conditional unique index (replaces unconditional unique index)
+	migratePhoneNumberConditionalUniqueIndex()
+	// Migrate phone_number from encrypted to plaintext and drop phone_number_hash
+	migratePhoneNumberPlaintext()
+	// Drop phone_auth_verified column
+	migrateDropPhoneAuthVerified()
 	// Migrate rebate_rate from permyriad (int) to percent (decimal)
 	migrateRebateRateToPercent()
 	// Migrate price_amount column from float/double to decimal for existing tables
@@ -578,11 +589,246 @@ func migrateSubscriptionPlanPriceAmount() {
 	}
 }
 
+func migratePhoneNumberColumnLength() {
+	const migrationKey = "migration.phone_number_varchar255"
+
+	var opt Option
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) {
+		return
+	}
+
+	if DB.Migrator().HasColumn(&User{}, "phone_number") {
+		if err := DB.Migrator().AlterColumn(&User{}, "phone_number"); err != nil {
+			common.SysError("failed to alter phone_number column: " + err.Error())
+		}
+	}
+
+	if DB.Migrator().HasColumn(&User{}, "phone_auth_provider") {
+		if err := DB.Migrator().AlterColumn(&User{}, "phone_auth_provider"); err != nil {
+			common.SysError("failed to alter phone_auth_provider column: " + err.Error())
+		}
+	}
+
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+	common.SysLog("phone_number and phone_auth_provider migrated to varchar(255)")
+}
+
+func migratePhoneNumberUniqueIndex() {
+	const migrationKey = "migration.phone_number_unique_index"
+
+	var opt Option
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) || !DB.Migrator().HasColumn(&User{}, "phone_number") {
+		return
+	}
+
+	if err := DB.Migrator().AlterColumn(&User{}, "phone_number"); err != nil {
+		common.SysError("failed to alter phone_number to unique index: " + err.Error())
+	}
+
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+	common.SysLog("phone_number unique index migrated")
+}
+
+func migratePhoneNumberConditionalUniqueIndex() {
+	const migrationKey = "migration.phone_number_conditional_unique_index"
+
+	var opt Option
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) || !DB.Migrator().HasColumn(&User{}, "phone_number") {
+		return
+	}
+
+	dropOldPhoneNumberUniqueIndex()
+
+	if common.UsingPostgreSQL {
+		createConditionalUniqueIndexPostgreSQL()
+	} else if common.UsingMySQL {
+		createConditionalUniqueIndexMySQL()
+	} else if common.UsingSQLite {
+		createConditionalUniqueIndexSQLite()
+	}
+
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+	common.SysLog("phone_number conditional unique index migrated")
+}
+
+func dropOldPhoneNumberUniqueIndex() {
+	const oldIndexName = "idx_users_phone_number"
+
+	if common.UsingPostgreSQL {
+		DB.Exec("DROP INDEX IF EXISTS " + oldIndexName)
+	} else if common.UsingMySQL {
+		var count int64
+		DB.Raw(`SELECT COUNT(*) FROM information_schema.statistics
+			WHERE table_schema = DATABASE() AND table_name = 'users' AND index_name = ?`,
+			oldIndexName).Scan(&count)
+		if count > 0 {
+			DB.Exec("DROP INDEX " + oldIndexName + " ON users")
+		}
+	} else if common.UsingSQLite {
+		DB.Exec("DROP INDEX IF EXISTS " + oldIndexName)
+	}
+}
+
+func createConditionalUniqueIndexPostgreSQL() {
+	const newIndexName = "idx_users_phone_number_unique"
+	DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS ` + newIndexName +
+		` ON users (phone_number) WHERE phone_number != ''`)
+}
+
+func createConditionalUniqueIndexMySQL() {
+	const newIndexName = "idx_users_phone_number_unique"
+
+	var count int64
+	DB.Raw(`SELECT COUNT(*) FROM information_schema.statistics
+		WHERE table_schema = DATABASE() AND table_name = 'users' AND index_name = ?`,
+		newIndexName).Scan(&count)
+	if count > 0 {
+		return
+	}
+
+	var version string
+	DB.Raw("SELECT VERSION()").Scan(&version)
+
+	if isMySQL80OrLater(version) {
+		err := DB.Exec(`CREATE UNIQUE INDEX ` + newIndexName +
+			` ON users ((CASE WHEN phone_number != '' THEN phone_number ELSE NULL END))`).Error
+		if err == nil {
+			return
+		}
+		common.SysLog(fmt.Sprintf("MySQL functional index creation failed, falling back to virtual column: %v", err))
+	}
+
+	var colCount int64
+	DB.Raw(`SELECT COUNT(*) FROM information_schema.columns
+		WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'phone_number_nonempty'`,
+	).Scan(&colCount)
+	if colCount == 0 {
+		DB.Exec(`ALTER TABLE users ADD COLUMN phone_number_nonempty VARCHAR(255)
+			GENERATED ALWAYS AS (CASE WHEN phone_number != '' THEN phone_number ELSE NULL END) VIRTUAL`)
+	}
+	DB.Exec(`CREATE UNIQUE INDEX ` + newIndexName + ` ON users (phone_number_nonempty)`)
+}
+
+func createConditionalUniqueIndexSQLite() {
+	const newIndexName = "idx_users_phone_number_unique"
+	DB.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS ` + newIndexName +
+		` ON users (phone_number) WHERE phone_number != ''`)
+}
+
+func isMySQL80OrLater(version string) bool {
+	parts := strings.SplitN(version, ".", 3)
+	if len(parts) < 2 {
+		return false
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	if major > 8 {
+		return true
+	}
+	if major < 8 {
+		return false
+	}
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return false
+	}
+	return minor >= 0
+}
+
+func migrateDropPhoneAuthVerified() {
+	const migrationKey = "migration.drop_phone_auth_verified"
+
+	var opt Option
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) || !DB.Migrator().HasColumn(&User{}, "phone_auth_verified") {
+		DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+		DB.Create(&Option{Key: migrationKey, Value: "done"})
+		return
+	}
+
+	if err := DB.Migrator().DropColumn(&User{}, "phone_auth_verified"); err != nil {
+		if common.UsingSQLite {
+			common.SysError("failed to drop phone_auth_verified column (SQLite < 3.35.0 may not support DROP COLUMN): " + err.Error())
+		} else {
+			common.SysError("failed to drop phone_auth_verified column: " + err.Error())
+		}
+	} else {
+		common.SysLog("phone_auth_verified column dropped successfully")
+	}
+
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+}
+
+func migratePhoneNumberPlaintext() {
+	const migrationKey = "migration.phone_number_plaintext"
+
+	var opt Option
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+		return
+	}
+
+	if !DB.Migrator().HasTable(&User{}) || !DB.Migrator().HasColumn(&User{}, "phone_number") {
+		return
+	}
+
+	var users []User
+	if err := DB.Where("phone_number != ''").Find(&users).Error; err != nil {
+		common.SysError("failed to query users for phone_number plaintext migration: " + err.Error())
+		DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+		DB.Create(&Option{Key: migrationKey, Value: "done"})
+		return
+	}
+
+	processed := 0
+	for _, u := range users {
+		decrypted, err := common.DecryptPhone(u.PhoneNumber)
+		if err != nil {
+			common.SysError(fmt.Sprintf("failed to decrypt phone_number for user %d during plaintext migration: %v", u.Id, err))
+			continue
+		}
+		if decrypted != u.PhoneNumber {
+			DB.Model(&User{}).Where("id = ?", u.Id).Update("phone_number", decrypted)
+			processed++
+		}
+	}
+
+	if DB.Migrator().HasColumn(&User{}, "phone_number_hash") {
+		if err := DB.Migrator().DropColumn(&User{}, "phone_number_hash"); err != nil {
+			common.SysError("failed to drop phone_number_hash column: " + err.Error())
+		}
+	}
+
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
+	DB.Create(&Option{Key: migrationKey, Value: "done"})
+	common.SysLog(fmt.Sprintf("phone_number plaintext migrated, %d users decrypted, phone_number_hash dropped", processed))
+}
+
 func migrateRebateRateToPercent() {
 	const migrationKey = "migration.rebate_rate_percent"
 
 	var opt Option
-	if err := DB.Where("`key` = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
+	if err := DB.Where(commonKeyCol+" = ?", migrationKey).First(&opt).Error; err == nil && opt.Value == "done" {
 		return
 	}
 
@@ -602,7 +848,7 @@ func migrateRebateRateToPercent() {
 		migrateRebateRateToPercentPostgreSQL()
 	}
 
-	DB.Where("`key` = ?", migrationKey).Delete(&Option{})
+	DB.Where(commonKeyCol+" = ?", migrationKey).Delete(&Option{})
 	DB.Create(&Option{Key: migrationKey, Value: "done"})
 	common.SysLog("rebate_rate 万分比到百分比迁移完成")
 }
@@ -643,8 +889,8 @@ func migrateRebateRateToPercentSQLite() {
 
 func migrateRebateRateToPercentMySQL() {
 	tables := []struct {
-		name   string
-		model  interface{}
+		name  string
+		model interface{}
 	}{
 		{"users", &User{}},
 		{"rebate_records", &RebateRecord{}},
@@ -691,8 +937,8 @@ func migrateRebateRateToPercentMySQL() {
 
 func migrateRebateRateToPercentPostgreSQL() {
 	tables := []struct {
-		name   string
-		model  interface{}
+		name  string
+		model interface{}
 	}{
 		{"users", &User{}},
 		{"rebate_records", &RebateRecord{}},

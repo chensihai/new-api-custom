@@ -29,7 +29,6 @@ const defaultAuthSettings: AuthSettings = {
   PasswordRegisterEnabled: true,
   PhoneLoginEnabled: false,
   PhoneRegisterEnabled: false,
-  PhoneAuthForceRealNameAuth: false,
   EmailVerificationEnabled: false,
   RegisterEnabled: true,
   EmailDomainRestrictionEnabled: false,

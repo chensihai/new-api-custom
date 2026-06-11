@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -78,12 +79,16 @@ export function UserAuthForm({
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<'password' | 'phone'>('password')
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false }) as Record<string, string>
+  const initialTab = search?.tab === 'phone' ? 'phone' : 'password'
+  const [activeTab, setActiveTab] = useState<'password' | 'phone'>(initialTab)
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
   const loginFailedMessage = t('Login failed')
 
   const { data: phoneAuthData } = usePhoneAuthEnabled()
   const smsAvailable = Boolean(phoneAuthData?.sms_available)
+  const phoneLoginEnabled = Boolean(phoneAuthData?.phone_login_enabled)
   const oneClickAvailable = Boolean(phoneAuthData?.one_click_available)
 
   const { status } = useStatus()
@@ -339,7 +344,10 @@ export function UserAuthForm({
       {smsAvailable && (
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as 'password' | 'phone')}
+          onValueChange={(v) => {
+            setActiveTab(v as 'password' | 'phone')
+            navigate({ search: { tab: v } as Record<string, string> })
+          }}
           className='w-full'
         >
           <TabsList className='mb-4 w-full'>
@@ -377,10 +385,10 @@ export function UserAuthForm({
               name='username'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t(smsAvailable ? 'Username or Email or Phone' : 'Username or Email')}</FormLabel>
+                  <FormLabel>{t(phoneLoginEnabled ? 'Username or Email or Phone' : 'Username or Email')}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder={t(smsAvailable ? 'Enter username, email or phone number' : 'Enter your username or email')}
+                      placeholder={t(phoneLoginEnabled ? 'Enter username, email or phone number' : 'Enter your username or email')}
                       {...field}
                     />
                   </FormControl>

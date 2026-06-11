@@ -859,6 +859,7 @@ const LoginForm = () => {
               ) : (
               <PhoneLoginForm
                 agreedToTerms={agreedToTerms}
+                setAgreedToTerms={setAgreedToTerms}
                 hasUserAgreement={hasUserAgreement}
                 hasPrivacyPolicy={hasPrivacyPolicy}
               />

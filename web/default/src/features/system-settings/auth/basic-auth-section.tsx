@@ -47,7 +47,6 @@ const basicAuthSchema = z.object({
   PasswordRegisterEnabled: z.boolean(),
   PhoneLoginEnabled: z.boolean(),
   PhoneRegisterEnabled: z.boolean(),
-  PhoneAuthForceRealNameAuth: z.boolean(),
   EmailVerificationEnabled: z.boolean(),
   RegisterEnabled: z.boolean(),
   EmailDomainRestrictionEnabled: z.boolean(),
@@ -213,29 +212,11 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                   <FormDescription>
                     {t('Allow registration with phone number')}
                   </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name='PhoneAuthForceRealNameAuth'
-            render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
-                  <FormLabel className='text-base'>
-                    {t('Force Real Name Auth')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t('Require real name authentication for phone login')}
-                  </FormDescription>
+                  {field.value && !form.watch('PhoneLoginEnabled') && (
+                    <p className='text-sm text-warning mt-1'>
+                      {t('Phone Login must also be enabled for phone registration to work')}
+                    </p>
+                  )}
                 </div>
                 <FormControl>
                   <Switch

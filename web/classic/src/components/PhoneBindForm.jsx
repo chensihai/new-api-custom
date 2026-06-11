@@ -211,7 +211,6 @@ const PhoneBindForm = () => {
   }
 
   const isBound = status?.phone_bound;
-  const isVerified = status?.real_name_verified;
 
   return (
     <Card title={t('手机号认证')} style={{ maxWidth: 600 }}>
@@ -222,14 +221,6 @@ const PhoneBindForm = () => {
             {
               key: t('当前手机号'),
               value: maskPhone(status.phone),
-            },
-            {
-              key: t('实名认证状态'),
-              value: isVerified ? (
-                <Tag color='green'>{t('已认证')}</Tag>
-              ) : (
-                <Tag color='orange'>{t('未认证')}</Tag>
-              ),
             },
           ]}
           style={{ marginBottom: 24 }}

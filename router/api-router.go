@@ -78,7 +78,6 @@ func SetApiRouter(router *gin.Engine) {
 			phoneAuthAdminRoute.GET("/providers", controller.GetPhoneAuthProviders)
 			phoneAuthAdminRoute.PUT("/providers", controller.UpdatePhoneAuthProviders)
 			phoneAuthAdminRoute.GET("/user/:id/phone", controller.AdminGetUserPhone)
-			phoneAuthAdminRoute.PUT("/user/:id/verified", controller.AdminSetUserPhoneVerified)
 			phoneAuthAdminRoute.POST("/user/:id/unbind", controller.AdminUnbindUserPhone)
 		}
 

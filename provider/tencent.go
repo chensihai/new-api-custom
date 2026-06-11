@@ -81,7 +81,7 @@ func (p *TencentPhoneAuthProvider) ValidateCredentials() bool {
 func tencentHmacSha256(key, data string) string {
 	mac := hmac.New(sha256.New, []byte(key))
 	mac.Write([]byte(data))
-	return hex.EncodeToString(mac.Sum(nil))
+	return string(mac.Sum(nil))
 }
 
 func tencentSha256Hex(data string) string {
@@ -96,24 +96,27 @@ func tencentTC3Sign(secretId, secretKey, service, action, host, payload string) 
 	date := time.Unix(timestamp, 0).UTC().Format("2006-01-02")
 	credentialScope := fmt.Sprintf("%s/%s/tc3_request", date, service)
 
-	canonicalRequest := fmt.Sprintf("POST\n/\n\ncontent-type:application/json; charset=utf-8\nhost:%s\n\ncontent-type;host\n%s", host, tencentSha256Hex(payload))
+	canonicalHeaders := fmt.Sprintf("content-type:application/json; charset=utf-8\nhost:%s\nx-tc-action:%s\n", host, strings.ToLower(action))
+	signedHeaders := "content-type;host;x-tc-action"
+	canonicalRequest := fmt.Sprintf("POST\n/\n\n%s\n%s\n%s", canonicalHeaders, signedHeaders, tencentSha256Hex(payload))
 
 	stringToSign := fmt.Sprintf("%s\n%d\n%s\n%s", algorithm, timestamp, credentialScope, tencentSha256Hex(canonicalRequest))
 
 	secretDate := tencentHmacSha256(fmt.Sprintf("TC3%s", secretKey), date)
 	secretService := tencentHmacSha256(secretDate, service)
 	secretSigning := tencentHmacSha256(secretService, "tc3_request")
-	signature := tencentHmacSha256(secretSigning, stringToSign)
+	signature := hex.EncodeToString([]byte(tencentHmacSha256(secretSigning, stringToSign)))
 
-	authorization := fmt.Sprintf("%s Credential=%s/%s, SignedHeaders=content-type;host, Signature=%s", algorithm, secretId, credentialScope, signature)
+	authorization := fmt.Sprintf("%s Credential=%s/%s, SignedHeaders=%s, Signature=%s", algorithm, secretId, credentialScope, signedHeaders, signature)
 
 	headers := map[string]string{
-		"Content-Type":  "application/json; charset=utf-8",
-		"Host":          host,
-		"X-TC-Action":   action,
+		"Content-Type":   "application/json; charset=utf-8",
+		"Host":           host,
+		"X-TC-Action":    action,
 		"X-TC-Timestamp": fmt.Sprintf("%d", timestamp),
-		"X-TC-Version":  "2021-01-11",
-		"Authorization": authorization,
+		"X-TC-Version":   "2021-01-11",
+		"X-TC-Region":    "ap-beijing",
+		"Authorization":  authorization,
 	}
 	return headers, nil
 }
@@ -179,14 +182,19 @@ func exchangePhoneByTencentToken(secretId, secretKey, token string) (string, err
 }
 
 func sendTencentSms(secretId, secretKey, smsSdkAppId, signName, templateId, phone, code string) error {
-	templateParam, _ := common.Marshal(map[string]string{"code": code})
+	var phoneE164 string
+	if !strings.HasPrefix(phone, "+") {
+		phoneE164 = "+86" + phone
+	} else {
+		phoneE164 = phone
+	}
 
 	payload, _ := common.Marshal(map[string]any{
-		"SmsSdkAppId":   smsSdkAppId,
-		"SignName":      signName,
-		"TemplateId":    templateId,
-		"TemplateParam": string(templateParam),
-		"PhoneNumberSet": []string{phone},
+		"SmsSdkAppId":      smsSdkAppId,
+		"SignName":         signName,
+		"TemplateId":       templateId,
+		"TemplateParamSet": []string{code, "5"},
+		"PhoneNumberSet":   []string{phoneE164},
 	})
 
 	body, err := tencentRequest("sms.tencentcloudapi.com", "SendSms", string(payload), secretId, secretKey, "sms")

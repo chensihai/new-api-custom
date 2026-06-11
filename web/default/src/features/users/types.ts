@@ -51,7 +51,6 @@ export const userSchema = z.object({
   inviter_id: z.number().optional(),
   linux_do_id: z.string().optional(),
   phone_number: z.string().optional(),
-  phone_auth_verified: z.boolean().optional(),
   phone_auth_provider: z.string().optional(),
   status: userStatusSchema,
   role: userRoleSchema,

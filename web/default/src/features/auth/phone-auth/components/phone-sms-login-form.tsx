@@ -40,6 +40,7 @@ import { phoneSmsLogin } from '../api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { usePhoneAuthEnabled } from '../hooks/use-phone-auth-enabled'
 import {
   phoneSmsLoginFormSchema,
   filterDigits,
@@ -47,6 +48,7 @@ import {
   PHONE_CODE_LENGTH,
 } from '../constants'
 import { useSmsCountdown } from '../hooks/use-sms-countdown'
+import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 
 interface PhoneSmsLoginFormProps extends React.HTMLAttributes<HTMLFormElement> {
   redirectTo?: string
@@ -77,6 +79,8 @@ export function PhoneSmsLoginForm({
     validateTurnstile,
   } = useTurnstile()
   const { handleLoginSuccess, redirectTo2FA } = useAuthRedirect()
+  const { data: phoneAuthData } = usePhoneAuthEnabled()
+  const allowPhoneRegister = Boolean(phoneAuthData?.allow_phone_register)
   const {
     isSending,
     secondsLeft,
@@ -86,6 +90,7 @@ export function PhoneSmsLoginForm({
     turnstileToken,
     validateTurnstile,
   })
+  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
 
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
@@ -125,6 +130,7 @@ export function PhoneSmsLoginForm({
       const res = await phoneSmsLogin({
         phone: data.phone,
         code: data.code,
+        turnstile_token: turnstileToken || undefined,
       })
 
       if (res.success) {
@@ -138,8 +144,19 @@ export function PhoneSmsLoginForm({
           redirectTo
         )
         toast.success(t('Welcome back!'))
+      } else {
+        const msg = res?.message || ''
+        if (msg.includes('not registered')) {
+          toast.error(
+            allowPhoneRegister
+              ? t('Phone number not registered. Please register first.')
+              : t('Phone number not registered.')
+          )
+        } else {
+          toast.error(msg || t('Login failed'))
+        }
       }
-    } catch (_error) {
+    } catch {
       // Errors are handled by global interceptor
     } finally {
       setIsLoading(false)
@@ -147,6 +164,7 @@ export function PhoneSmsLoginForm({
   }
 
   async function handleSendCode() {
+    if (isSending || isCountdownActive) return
     const phone = phoneValue
     if (!phone) {
       toast.error(t('Please enter your phone number first'))
@@ -174,7 +192,7 @@ export function PhoneSmsLoginForm({
               <FormLabel>{t('Phone Number')}</FormLabel>
               <FormControl>
                 <Input
-                  placeholder={t('Enter your phone number')}
+                  placeholder={t('Enter 11-digit phone number')}
                   inputMode='numeric'
                   maxLength={PHONE_MAX_LENGTH}
                   {...field}
@@ -218,7 +236,7 @@ export function PhoneSmsLoginForm({
           <Button
             variant='outline'
             type='button'
-            disabled={isLoading || isSending || isCountdownActive || !phoneValue}
+            disabled={isLoading || isSending || isCountdownActive || !phoneValue || !turnstileReady}
             onClick={handleSendCode}
             className='gap-1'
           >
@@ -254,9 +272,9 @@ export function PhoneSmsLoginForm({
         <Button
           type='submit'
           className='mt-2 w-full justify-center gap-2'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={isLoading || (requiresLegalConsent && !agreedToLegal) || !turnstileReady}
         >
-          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
+          {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : <LogIn />}
           {t('Sign in')}
         </Button>
 
@@ -270,6 +288,8 @@ export function PhoneSmsLoginForm({
             {t('Sign in with password')}
           </Button>
         )}
+
+        <OAuthProviders />
       </form>
     </Form>
   )

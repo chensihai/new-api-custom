@@ -41,6 +41,7 @@ import { phoneRegister } from '../api'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { getAffiliateCode } from '@/features/auth/lib/storage'
 import {
   phoneRegisterFormSchema,
   filterDigits,
@@ -48,6 +49,7 @@ import {
   PHONE_CODE_LENGTH,
 } from '../constants'
 import { useSmsCountdown } from '../hooks/use-sms-countdown'
+import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 
 interface PhoneRegisterFormProps extends React.HTMLAttributes<HTMLFormElement> {
   onSwitchToPassword?: () => void
@@ -85,6 +87,7 @@ export function PhoneRegisterForm({
     turnstileToken,
     validateTurnstile,
   })
+  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
 
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
   const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
@@ -128,11 +131,15 @@ export function PhoneRegisterForm({
         code: data.code,
         username: data.username,
         password: data.password || undefined,
+        turnstile_token: turnstileToken || undefined,
+        aff_code: getAffiliateCode(),
       })
 
       if (res?.success) {
         toast.success(t('Account created! Please sign in'))
         redirectToLogin()
+      } else {
+        toast.error(res?.message || t('Failed to create account'))
       }
     } catch (_error) {
       // Errors are handled by global interceptor
@@ -142,6 +149,7 @@ export function PhoneRegisterForm({
   }
 
   async function handleSendCode() {
+    if (isSending || isCountdownActive) return
     const phone = phoneValue
     if (!phone) {
       toast.error(t('Please enter your phone number first'))
@@ -169,7 +177,7 @@ export function PhoneRegisterForm({
               <FormLabel>{t('Phone Number')}</FormLabel>
               <FormControl>
                 <Input
-                  placeholder={t('Enter your phone number')}
+                  placeholder={t('Enter 11-digit phone number')}
                   inputMode='numeric'
                   maxLength={PHONE_MAX_LENGTH}
                   {...field}
@@ -204,8 +212,8 @@ export function PhoneRegisterForm({
                         field.onChange(filtered)
                       }}
                     />
-                  </FormControl>
-                  <FormMessage />
+              </FormControl>
+              <FormMessage />
                 </FormItem>
               )}
             />
@@ -213,7 +221,7 @@ export function PhoneRegisterForm({
           <Button
             variant='outline'
             type='button'
-            disabled={isLoading || isSending || isCountdownActive || !phoneValue}
+            disabled={isLoading || isSending || isCountdownActive || !phoneValue || !turnstileReady}
             onClick={handleSendCode}
             className='gap-1'
           >
@@ -280,7 +288,7 @@ export function PhoneRegisterForm({
         <Button
           type='submit'
           className='mt-2 w-full justify-center gap-2'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={isLoading || (requiresLegalConsent && !agreedToLegal) || !turnstileReady}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
           {t('Create account')}
@@ -296,6 +304,8 @@ export function PhoneRegisterForm({
             {t('Sign up with password')}
           </Button>
         )}
+
+        <OAuthProviders />
       </form>
     </Form>
   )

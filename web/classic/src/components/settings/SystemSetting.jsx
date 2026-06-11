@@ -55,7 +55,7 @@ const SystemSetting = () => {
     GitHubClientId: '',
     GitHubClientSecret: '',
     PhoneLoginEnabled: '',
-    PhoneAuthForceRealNameAuth: '',
+    PhoneRegisterEnabled: '',
     'discord.enabled': '',
     'discord.client_id': '',
     'discord.client_secret': '',
@@ -180,7 +180,7 @@ const SystemSetting = () => {
           case 'EmailVerificationEnabled':
           case 'GitHubOAuthEnabled':
           case 'PhoneLoginEnabled':
-          case 'PhoneAuthForceRealNameAuth':
+          case 'PhoneRegisterEnabled':
           case 'WeChatAuthEnabled':
           case 'TelegramOAuthEnabled':
           case 'RegisterEnabled':
@@ -1103,23 +1103,23 @@ const SystemSetting = () => {
                           handleCheckboxChange('PhoneLoginEnabled', e)
                         }
                       >
-                        {t('允许通过手机号注册登录')}
+                        {t('允许通过手机号登录')}
                       </Form.Checkbox>
                       <Form.Checkbox
-                        field='PhoneAuthForceRealNameAuth'
+                        field='PhoneRegisterEnabled'
                         noLabel
                         onChange={(e) =>
-                          handleCheckboxChange('PhoneAuthForceRealNameAuth', e)
+                          handleCheckboxChange('PhoneRegisterEnabled', e)
                         }
                       >
-                        {t('强制实名认证')}
+                        {t('允许通过手机号注册')}
                       </Form.Checkbox>
                     </Col>
                   </Row>
                 </Form.Section>
               </Card>
 
-              {inputs.PhoneLoginEnabled && (
+              {(inputs.PhoneLoginEnabled || inputs.PhoneRegisterEnabled) && (
                 <PhoneAuthProviderSettings t={t} />
               )}
 

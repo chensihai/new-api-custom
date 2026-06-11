@@ -19,8 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ConfirmDialog } from '@/components/confirm-dialog'
-import { unbindPhone } from '@/features/auth/phone-auth/api'
+import { Loader2, MessageSquare } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { unbindPhone, sendPhoneSmsCode } from '@/features/auth/phone-auth/api'
+import { PHONE_CODE_LENGTH, PHONE_MAX_LENGTH, filterDigits } from '@/features/auth/phone-auth/constants'
+import { useSmsCountdown } from '@/features/auth/phone-auth/hooks/use-sms-countdown'
 
 interface PhoneUnbindDialogProps {
   open: boolean
@@ -37,14 +49,37 @@ export function PhoneUnbindDialog({
 }: PhoneUnbindDialogProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const {
+    isSending,
+    secondsLeft,
+    isCountdownActive,
+    sendCode,
+  } = useSmsCountdown({})
+
+  const handleSendCode = async () => {
+    if (!phone || isSending || isCountdownActive) return
+    await sendCode(phone)
+  }
 
   const handleConfirm = async () => {
+    if (!phone) {
+      toast.error(t('Please enter your phone number'))
+      return
+    }
+    if (!code) {
+      toast.error(t('Please enter the verification code'))
+      return
+    }
     setLoading(true)
     try {
-      const res = await unbindPhone()
+      const res = await unbindPhone({ phone, code })
       if (res.success) {
-        toast.success(t('Phone number unbound successfully'))
+        toast.success(t('Phone unbound successfully'))
         onOpenChange(false)
+        setPhone('')
+        setCode('')
         onSuccess()
       } else {
         toast.error(res.message || t('Failed to unbind phone number'))
@@ -56,19 +91,91 @@ export function PhoneUnbindDialog({
     }
   }
 
+  const handleClose = (val: boolean) => {
+    if (!val) {
+      setPhone('')
+      setCode('')
+    }
+    onOpenChange(val)
+  }
+
   return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={t('Confirm Unbind Phone Number')}
-      desc={t(
-        'Are you sure you want to unbind phone number {{phone}}? You will no longer be able to log in via phone number.',
-        { phone: maskedPhone || '****' }
-      )}
-      confirmText={t('Confirm Unbind')}
-      destructive
-      handleConfirm={handleConfirm}
-      isLoading={loading}
-    />
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className='max-w-sm'>
+        <DialogHeader>
+          <DialogTitle>{t('Confirm Unbind Phone Number')}</DialogTitle>
+          <DialogDescription>
+            {t(
+              'To unbind phone number {{phone}}, please enter the phone number and verification code.',
+              { phone: maskedPhone || '****' }
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
+          placeholder={t('Enter 11-digit phone number')}
+          inputMode='numeric'
+          maxLength={PHONE_MAX_LENGTH}
+          autoComplete='tel'
+          value={phone}
+          onChange={(e) => {
+            const filtered = filterDigits(e.target.value, PHONE_MAX_LENGTH)
+            setPhone(filtered)
+          }}
+        />
+
+        <div className='flex items-end gap-2'>
+          <div className='flex-1'>
+            <Input
+              placeholder={t('Enter 6-digit code')}
+              inputMode='numeric'
+              maxLength={PHONE_CODE_LENGTH}
+              autoComplete='one-time-code'
+              value={code}
+              onChange={(e) => {
+                const filtered = filterDigits(e.target.value, PHONE_CODE_LENGTH)
+                setCode(filtered)
+              }}
+            />
+          </div>
+          <Button
+            variant='outline'
+            type='button'
+            disabled={isSending || isCountdownActive || !phone}
+            onClick={handleSendCode}
+            className='gap-1'
+          >
+            {isCountdownActive ? (
+              t('Resend ({{seconds}}s)', { seconds: secondsLeft })
+            ) : isSending ? (
+              <Loader2 className='h-4 w-4 animate-spin' />
+            ) : (
+              <>
+                <MessageSquare className='h-4 w-4' />
+                {t('Send code')}
+              </>
+            )}
+          </Button>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant='outline'
+            onClick={() => handleClose(false)}
+            disabled={loading}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            variant='destructive'
+            onClick={handleConfirm}
+            disabled={loading || !code || !phone}
+          >
+            {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
+            {t('Confirm Unbind')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -76,7 +76,6 @@ export type AuthSettings = {
   PasswordRegisterEnabled: boolean
   PhoneLoginEnabled: boolean
   PhoneRegisterEnabled: boolean
-  PhoneAuthForceRealNameAuth: boolean
   EmailVerificationEnabled: boolean
   RegisterEnabled: boolean
   EmailDomainRestrictionEnabled: boolean
